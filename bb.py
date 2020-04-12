@@ -49,6 +49,9 @@ Grate28= Obstacle("Grate")
 Door411= Obstacle("Door")
 Door612= Obstacle("Door")
 Mantis= Monster("Mantis", "A Giant Mantis crouches nearby, ready to pounce.")
+Terror= Monster("Nameless Terror",
+  "The Nameless Terror arises from a pit" \
+  ", blocking your retreat with slimy tentacles!")
 
 # https://archive.org/details/Writing_BASIC_Adventure_Programs_for_the_TRS-80_1982_Frank_DaCosta/page/n25/mode/2up
 #pages 25-26 [orig: 18-19], 148-150 [orig: 141-143]
@@ -63,6 +66,9 @@ GuardPost   = DarkRoom("Guard Post", "");
 #9
 NarrowLedge = DarkRoom("Narrow Ledge", "")
 Cell        = DarkRoom("Cell", "")
+#12
+#13
+CobwebRoom  = DarkRoom("Cobweb Room", "")
 
 # 148-150 [orig: 141-143]
 BottomOfPit.lDesc= \
@@ -94,6 +100,9 @@ GuardPost.lDesc= \
 Cell.lDesc= \
   "This is a small prison cell. Through the bars, you can see a nice office... unreachable." \
   " There's a north door."
+CobwebRoom.lDesc= \
+  "What a creepy place! There are cobwebs everywhere!" \
+  " A door leads north, a hall goes northwest, and there is a hole in the floor."
 
 #pages 25-26 [orig: 18-19]
 BottomOfPit.travel.put("default", BottomOfPit)
