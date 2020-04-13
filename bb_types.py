@@ -2,7 +2,7 @@
 # Basement and Beasties
 
 # Type and constant-definitions that aren't specific to this game
-# Also declaritions of variablas "allRooms", "allDarkRooms", "allGates",
+# Also declaration of variables "allRooms", "allDarkRooms", "allGates",
 # "allMonsters", "allObjs", "allTreasures"
 
 from typing import Set
@@ -123,9 +123,9 @@ class Treasure(Obj):
 
 allTreasures: Set[Obj]
 
-# special name to represent the locations of objects hold by the playe
-Player= object()
-
 class Death:
-  def __init__(self, sDesc):
+  def __init__(self, sDesc, lDesc):
     self.sDesc= sDesc;
+    self.lDesc= lDesc
+  def __repr__(self):
+    return self.sDesc
