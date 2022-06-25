@@ -5,7 +5,7 @@ from typing import Set, Dict
 from bb_types import *
 from bb_static import *
 
-# special name to represent the locations of objects hold by the playe
+# special name to represent the locations of objects hold by the player
 Player= object()
 
 # variable data
@@ -74,16 +74,38 @@ class PlayerState:
       self.visitedRooms.add(intoroom)
 #endclass PlayerState
 
-ps= PlayerState()
+def decodeDirection (strDir):
+    if strDir=='UP':
+        ret= 'up';
+    elif strDir=='DOWN':
+        ret= 'down'
+    elif strDir=='NORTH' or strDir=='N':
+        ret= 'n'
+    elif strDir=='NORTHEAST' or strDir=='NE':
+        ret= 'ne'
+    elif strDir=='EAST' or strDir=='E':
+        ret= 'e'
+    elif strDir=='SOUTHEAST' or strDir=='SE':
+        ret= 'se'
+    elif strDir=='SOUTH' or strDir=='S':
+        ret= 's'
+    elif strDir=='SOUTHWEST' or strDir=='SW':
+        ret= 'sw'
+    elif strDir=='WEST' or strDir=='W':
+        ret= 'w'
+    elif strDir=='NORTHWEST' or strDir=='NW':
+        ret= 'nw'
+    else:
+        ret= None
+    return ret
 
+'''
 print ("=== Test: describeRoom(Office) ===")
 ps.describeRoom(Office)
-"""
 ps.describeRoom(which="Long")
 ps.describeRoom(Ruins,"Short")
 ps.describeRoom(SlimyCavern,"Long")
 print(ps.monsterState)
-"""
 
 print ("\n=== Test: enterRoom(Ruins) ===")
 ps.enterRoom(Ruins)
@@ -96,3 +118,65 @@ ps.enterRoom(Ruins)
 
 print ("\n=== Test: enterRoom(Office) ===")
 ps.enterRoom(Office)
+'''
+
+def xmove(ps, direction):
+    print(ps.position.travel)
+    moveto= ps.position.travel.get(direction)
+    if moveto==None:
+        print (Messages['NoWay'])
+        return
+    if isinstance(moveto, list):
+        print ('Kezeletlen eset, itt egy lista:')
+        for l in moveto:
+            if isinstance(l, Gate):
+                print('  Ajto/Racs:', l, type(l))
+            elif isinstance(l, Monster):
+                print('  Szorny:', l, type(l))
+            elif isinstance(l, Room):
+                print('  Szoba:', l, type(l))
+        return
+    ps.position= moveto
+    ps.describeRoom(ps.position)
+
+def executeCommand(ps, cmdline):
+    cmdparts= cmdline.split()
+    cmd= cmdparts[0].upper()
+    cmdparts.pop(0)
+#   print(cmd, cmdparts)
+
+    # quit
+    if cmd=='Q' or cmd=='QUIT' or cmd=='EXIT' or cmd=='BYE':
+        exit(0)
+
+    # move, with go/jump
+    if cmd=='GO' or cmd=='JUMP':
+        if cmdparts==[]:
+            direction= 'default'
+        else:
+            strDir= cmdparts[0].upper()
+            direction= decodeDirection(strDir)
+            if direction==None:
+                print(Messages['BadDirection']);
+                return
+        xmove(ps, direction)
+        return
+
+    # move, without go/jump
+    direction= decodeDirection(cmd)
+    if direction != None:
+        xmove(ps, direction)
+        return
+
+    print(Messages['UnknownCommand'])
+
+def main():
+    ps= PlayerState()
+    ps.describeRoom(ps.position)
+    while True:
+        cmdline= ''
+        while cmdline=='':
+            cmdline= input('* ')
+        executeCommand(ps, cmdline)
+
+main()
