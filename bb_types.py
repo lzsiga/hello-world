@@ -17,15 +17,19 @@ directions= horizontal_directions.union({"default", "up", "down", "magical"})
 class Travel:
   def __init__(self):
     self.dict= {}
+
+  def __str__(self):
+    return str(self.dict)
+
   def get(self, dir):
     if dir in self.dict:
-      return self.dict[key]
-    if dir in horizontal_directions and "default" in self.dict:
-      return self.dict["default"]
+      return self.dict[dir]
     else:
-      return False
+      return None
+
   def put(self, key, value):
     self.dict[key]= value
+
   def merge(self, newvalues):
     self.dict.update(newvalues)
 
