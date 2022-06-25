@@ -82,7 +82,7 @@ BottomOfPit.lDesc= \
   " At your feet is a narrow hole just wide enough to climb into."
 Ruins.lDesc= \
   "Here are the ruins of an ancient Troll-castle." \
-  " Nearby is a grate leading down into darknes..."
+  " Nearby is a grate leading down into darkness..."
 WeaponsRoom.lDesc= \
   "This was apparently once a weapons room, though cases are all empty now." \
   " There's a hole in the roof, an archway to the east" \
@@ -142,7 +142,7 @@ BottomOfPit.travel.merge({ \
   "default": BottomOfPit, "magical": OracleRoom,
   "down": WeaponsRoom, "ne": Ruins, "e": Ruins})
 
-Ruins.travel.down= [Grate28, GuardPost]
+Ruins.travel.put("down", [Grate28, GuardPost])
 Ruins.travel.put("default", Ruins)
 Ruins.travel.put("sw", BottomOfPit)
 Ruins.travel.put("w", BottomOfPit)
@@ -212,3 +212,8 @@ SteamyCave.travel.merge({\
 
 FierySpire.travel.put("default", BurningDeath)
 FierySpire.travel.put("up", SteamyCave)
+
+Messages=dict()
+Messages['BadDirection']=   'Cannot move: bad direction (valid: Up, Down, N, NE, E, SE, S, SW, W, NW)'
+Messages['NoWay']=          'Cannot move into that direction';
+Messages['UnknownCommand']= 'I don\'t understand this command'
