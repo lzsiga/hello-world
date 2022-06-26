@@ -17,14 +17,14 @@ TombRoom      = DarkRoom("Tomb Room", "")
 OracleRoom    = DarkRoom("Oracle Room", "")
 TreasureVault = DarkRoom("Treasure Vault", "")
 GuardPost     = DarkRoom("Guard Post", "");
-MazeA         = DarkRoom("You are lost in a maze", "You are lost in a maze")
+MazeA         = DarkRoom("You are lost in a maze!", "You are lost in a maze!")
 NarrowLedge   = DarkRoom("Narrow Ledge", "")
 Cell          = DarkRoom("Cell", "")
 Office        = DarkRoom("Office", "")
 LunchRoom     = DarkRoom("Lunch Room", "")
 CobwebRoom    = DarkRoom("Cobweb Room", "")
-MazeB         = DarkRoom("You are lost in a maze", "You are lost in a maze")
-MazeC         = DarkRoom("You are lost in a maze", "You are lost in a maze")
+MazeB         = DarkRoom("You are lost in a maze!", "You are lost in a maze!")
+MazeC         = DarkRoom("You are lost in a maze!", "You are lost in a maze!")
 RushingStream = DarkRoom("Rushing Stream", "")
 SlimyCavern   = DarkRoom("Slimy Cavern", "")
 SteamyCave    = DarkRoom("Steamy Cave", "")
@@ -86,12 +86,12 @@ Ruins.lDesc= \
 WeaponsRoom.lDesc= \
   "This was apparently once a weapons room, though cases are all empty now." \
   " There's a hole in the roof, an archway to the east" \
-  ", and a jagged hole in the southest wall."
+  ", and a jagged hole in the southeast wall."
 LostBattle.lDesc= \
   "The signs of a great battle between Trolls and terrible Beast-Men are evident..." \
   " From the looks of it, the Trolls lost." \
   " Bodies are everywhere. There is a jagged hole to the west, a hall northeast" \
-  ", and a south door"
+  ", and a south door."
 TombRoom.lDesc= \
   "The walls are lined with coffin cases..." \
   " This is the Troll cemetery, it seems." \
@@ -106,6 +106,10 @@ TreasureVault.lDesc= \
 GuardPost.lDesc= \
   "This was once the main guardpost to the underground kingdom of the Trolls." \
   " There is entrance-grate set in the roof and a south exit door."
+NarrowLedge.lDesc= \
+  "You walk along a narrow ledge running northwest and southeast." \
+  " To the west is a rapid stream far below," \
+  " and to the east is a bottomless chasm!"
 Cell.lDesc= \
   "This is a small prison cell. Through the bars, you can see a nice office... unreachable." \
   " There's a north door."
@@ -187,7 +191,7 @@ LunchRoom.travel.put("w", "Office")
 CobwebRoom.travel.put("n", GuardPost)
 CobwebRoom.travel.put("s", SteamyCave)
 CobwebRoom.travel.put("down", SteamyCave)
-CobwebRoom.travel.put("nw", TreasureVault)
+CobwebRoom.travel.put("nw", [Spider, TreasureVault])
 
 MazeB.travel.put("n",  MazeB)
 MazeB.travel.put("e",  MazeB)
@@ -204,11 +208,11 @@ RushingStream.travel.put("up", SlimyCavern)
 RushingStream.travel.put("down", SlimyCavern)
 
 SlimyCavern.travel.put("n",  Office)
-SlimyCavern.travel.put("ne", SteamyCave)
+SlimyCavern.travel.put("ne", [Iguana, SteamyCave])
 
 SteamyCave.travel.merge({\
   "up": CobwebRoom, "down": FierySpire,
-  "n":  CobwebRoom, "sw": [Iguana, SlimyCavern]})
+  "n":  CobwebRoom, "sw": SlimyCavern})
 
 FierySpire.travel.put("default", BurningDeath)
 FierySpire.travel.put("up", SteamyCave)
@@ -217,3 +221,14 @@ Messages=dict()
 Messages['BadDirection']=   'Cannot move: bad direction (valid: Up, Down, N, NE, E, SE, S, SW, W, NW)'
 Messages['NoWay']=          'Cannot move into that direction';
 Messages['UnknownCommand']= 'I don\'t understand this command'
+Messages['ClosedGrate']=    'The grate is closed and locked!';
+Messages['ClosedDoor']=     'The door is closed and locked!';
+Messages['NoObject']=       'Bad command: direct object missing.';
+Messages['EnemyObject']=    'You cannot pickup a Monster!';
+Messages['ObstacleObject']= 'You cannot pickup an Obstacle!';
+Messages['UnmoveableObject']= 'You cannot move it.';
+Messages['AlreadyTaken']=   'You\'ve already taken it.';
+Messages['EmptyInventory']= 'Your hands are empty.';
+Messages['Inventory']=      'You have got:';
+Messages['Taken']=          'You got the';
+Messages['ObjNotHere']=     'That object isn\'t here.';

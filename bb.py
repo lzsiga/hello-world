@@ -1,5 +1,5 @@
 # Frank DaCosta: Writing BASIC adventure programs for the TRS-80
-# Basement and Beasties
+# Basements and Beasties
 
 from typing import Set, Dict
 from bb_types import *
@@ -99,6 +99,21 @@ def decodeDirection (strDir):
         ret= None
     return ret
 
+def decodeObject(strObject):
+    for o in allObjs:
+        names= o.sDesc.split();
+        for n in names:
+            if strObject==n.upper():
+                return o
+    return None
+
+def decodeMonster(strMonster):
+    for o in allObjs:
+        names= o.sDesc.split();
+        for n in names:
+            if strObject==n.upper():
+                return o
+    return None
 '''
 print ("=== Test: describeRoom(Office) ===")
 ps.describeRoom(Office)
@@ -121,16 +136,20 @@ ps.enterRoom(Office)
 '''
 
 def xmove(ps, direction):
-    print(ps.position.travel)
+#   print(ps.position.travel)
     moveto= ps.position.travel.get(direction)
     if moveto==None:
         print (Messages['NoWay'])
         return
     if isinstance(moveto, list):
-        print ('Kezeletlen eset, itt egy lista:')
         for l in moveto:
             if isinstance(l, Gate):
-                print('  Ajto/Racs:', l, type(l))
+                if not l.isOpen:
+                    if isinstance(l, Grate):
+                        print(Messages['ClosedGrate'])
+                    else:
+                        print(Messages['ClosedDoor'])
+                    return
             elif isinstance(l, Monster):
                 print('  Szorny:', l, type(l))
             elif isinstance(l, Room):
@@ -138,6 +157,26 @@ def xmove(ps, direction):
         return
     ps.position= moveto
     ps.describeRoom(ps.position)
+
+def pickup(ps, obj):
+    if ps.positions[obj]==Player:
+        print(Messages['AlreadyTaken'])
+        return
+    if ps.positions[obj]!=ps.position:
+        print(Messages['ObjNotHere'])
+    if ps.positions[obj]==ps.position:
+        ps.belongings[Player].add(obj)
+        ps.positions[obj]= Player
+        print(Messages['Taken'], obj.sDesc, '!')
+
+def inven(ps):
+    stuff= ps.belongings[Player]
+    if len(stuff)==0:
+        print(Messages['EmptyInventory'])
+    else:
+        print(Messages['Inventory'])
+        for s in stuff:
+            print(s.sDesc)
 
 def executeCommand(ps, cmdline):
     cmdparts= cmdline.split()
@@ -168,6 +207,24 @@ def executeCommand(ps, cmdline):
         xmove(ps, direction)
         return
 
+    if cmd=='PICKUP' or cmd=='GET' or cmd=='TAKE' or cmd=='STEAL':
+        if cmdparts==[]:
+            print(Messages['NoObject'])
+            return
+        else:
+            strObject= cmdparts[0].upper()
+            obj= decodeObject(strObject)
+            if obj!=None:
+                pickup(ps, obj)
+                return
+            else:
+                print('Nem targy volt')
+                return
+
+    if cmd=='INVENTORY' or cmd=='LIST':
+        inven(ps)
+        return
+
     print(Messages['UnknownCommand'])
 
 def main():
@@ -176,7 +233,7 @@ def main():
     while True:
         cmdline= ''
         while cmdline=='':
-            cmdline= input('* ')
+            cmdline= input("\n* ")
         executeCommand(ps, cmdline)
 
 main()
