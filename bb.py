@@ -2,11 +2,9 @@
 # Basements and Beasties
 
 from typing import Set, Dict
+from random import randrange
 from bb_types import *
 from bb_static import *
-
-# special name to represent the locations of objects hold by the player
-Player= object()
 
 # variable data
 class PlayerState:
@@ -46,6 +44,10 @@ class PlayerState:
       toRoom= o.originalPosition
       self.positions[o]= toRoom
       self.belongings[toRoom].add(o)
+    for m in allMonsters:
+      toRoom= m.originalPosition
+      self.positions[m]= toRoom
+      self.belongings[toRoom].add(m)
 
   def describeRoom(self, room="Default", which="Default"):
     if room=="Default": room= self.position
@@ -75,9 +77,9 @@ class PlayerState:
 #endclass PlayerState
 
 def decodeDirection (strDir):
-    if strDir=='UP':
+    if strDir=='UP' or strDir=='U':
         ret= 'up';
-    elif strDir=='DOWN':
+    elif strDir=='DOWN' or strDir=='D':
         ret= 'down'
     elif strDir=='NORTH' or strDir=='N':
         ret= 'n'
@@ -98,7 +100,11 @@ def decodeDirection (strDir):
     else:
         ret= None
     return ret
-
+'''
+    ====================
+    === decodeObject ===
+    ====================
+'''
 def decodeObject(strObject):
     for o in allObjs:
         names= o.sDesc.split();
@@ -106,35 +112,34 @@ def decodeObject(strObject):
             if strObject==n.upper():
                 return o
     return None
-
-def decodeMonster(strMonster):
-    for o in allObjs:
+'''
+    ===================
+    === decodeEnemy ===
+    ===================
+'''
+def decodeEnemy(strMonster):
+    for o in allEnemies:
         names= o.sDesc.split();
         for n in names:
-            if strObject==n.upper():
+            if strMonster==n.upper():
                 return o
     return None
 '''
-print ("=== Test: describeRoom(Office) ===")
-ps.describeRoom(Office)
-ps.describeRoom(which="Long")
-ps.describeRoom(Ruins,"Short")
-ps.describeRoom(SlimyCavern,"Long")
-print(ps.monsterState)
-
-print ("\n=== Test: enterRoom(Ruins) ===")
-ps.enterRoom(Ruins)
-
-print ("\n=== Test: enterRoom(BottomOfPit) ===")
-ps.enterRoom(BottomOfPit)
-
-print ("\n=== Test: enterRoom(Ruins) ===")
-ps.enterRoom(Ruins)
-
-print ("\n=== Test: enterRoom(Office) ===")
-ps.enterRoom(Office)
+    =====================
+    === findEnemyHere ===
+    =====================
 '''
-
+def findEnemyHere(ps):
+    stuff= ps.belongings[ps.position]
+    for s in stuff:
+        if isinstance(s, Monster):
+            return s
+    return None
+'''
+    =============
+    === xmove ===
+    =============
+'''
 def xmove(ps, direction):
 #   print(ps.position.travel)
     moveto= ps.position.travel.get(direction)
@@ -157,27 +162,143 @@ def xmove(ps, direction):
         return
     ps.position= moveto
     ps.describeRoom(ps.position)
-
+'''
+    ==============
+    === pickup ===
+    ==============
+'''
 def pickup(ps, obj):
     if ps.positions[obj]==Player:
         print(Messages['AlreadyTaken'])
         return
     if ps.positions[obj]!=ps.position:
         print(Messages['ObjNotHere'])
-    if ps.positions[obj]==ps.position:
-        ps.belongings[Player].add(obj)
-        ps.positions[obj]= Player
-        print(Messages['Taken'], obj.sDesc, '!')
+        return
+    if len(ps.belongings[Player]) >= MaxItems:
+        print(Messages['HandsFull'])
+        return
 
-def inven(ps):
+    ps.belongings[Player].add(obj)
+    ps.positions[obj]= Player
+    print(Messages['Taken'] % (obj.sDesc))
+    ps.belongings[ps.position].remove(obj)
+'''
+    =================
+    === inventory ===
+    =================
+'''
+def inventory(ps):
     stuff= ps.belongings[Player]
     if len(stuff)==0:
         print(Messages['EmptyInventory'])
     else:
-        print(Messages['Inventory'])
+        print(Messages['Inventory'] % (len(stuff)))
         for s in stuff:
-            print(s.sDesc)
+            print(' ', s.sDesc)
+'''
+    ============
+    === drop ===
+    ============
+'''
+def drop(ps, obj):
+    if ps.positions[obj]==Player:
+        print(Messages['AlreadyTaken'])
+        return
+    if ps.positions[obj]!=ps.position:
+        print(Messages['ObjNotHere'])
+        return
+    if len(ps.belongings[Player]) >= MaxItems:
+        print(Messages['HandsFull'])
+        return
 
+    ps.belongings[Player].add(obj)
+    ps.positions[obj]= Player
+    print(Messages['Taken'] % (obj.sDesc))
+    ps.belongings[ps.position].remove(obj)
+'''
+    ============
+    === dead ===
+    ============
+'''
+def dead(ps):
+    print('Well, fine adventurer! You are in a real jam! Fortunately, we can bring you back!')
+    print('...POOF!!...')
+    stuff= ps.belongings[Player]
+    for s in stuff:
+        if s==Torch:
+            toRoom= Ruins
+        else:
+            toRoom= ps.position
+        ps.positions[s]= toRoom
+        ps.belongings[Player].remove(s)
+        ps.belongings[toRoom].add(s)
+    ps.describeRoom(ps.position)
+'''
+    =====================
+    === counterAttack ===
+    =====================
+'''
+def counterAttack(ps,enemy):
+    print('The hideous monster leaps at your throat!')
+    if randrange(0,100) < 30:
+        print('It finishes you off!!')
+        dead(ps)
+    else:
+        print('Somehow you fend it off!')
+'''
+    =============
+    === fight ===
+    =============
+'''
+def fight(ps,enemy):
+    if enemy==None or ps.monsterState[enemy]==isDead:
+        print('Save your stamina, turkey! I see no real threat!')
+        return
+    if ps.positions[Axe] != Player:
+        print('With what weapon?')
+        return
+    if enemy==Spider or enemy==Terror:
+        print('Your axe swings are dynamic... but ineffective!')
+        counterAttack(ps, enemy)
+    else:
+        if randrange(0,100) < 70:
+            print('Your magic axe connects! The creature vanishes in a puff of foul smoke!')
+            ps.positions[enemy]= Void
+            ps.monsterState[enemy]= isDead
+            ps.belongings[ps.position].remove(enemy)
+        else:
+            print('Missed it! FIE!')
+            counterAttack(ps, enemy)
+'''
+    ============
+    === bomb ===
+    ============
+'''
+def bomb(ps):
+    if ps.positions[Grenade] != Player:
+        print('You have no bomb!')
+        return
+    if ps.positions[Spider] == ps.position:
+        enemy= Spider
+    elif ps.position[Terror] == ps.position:
+        enemy= Terror
+    else:
+        enemy= None
+    if enemy != None:
+        print('The grenade explodes in a silent flash of weird blue light...'\
+              'and the creature is gone!')
+        ps.positions[enemy]= Void
+        ps.monsterState[enemy]= isDead
+    else:
+        print('The grenade falls to the floor and nothing happens.')
+    ps.positions[Grenade]= ps.position
+    ps.position.belongings.add(Grenade)
+    ps.belongings[Player].remove(Grenade)
+'''
+    ======================
+    === executeCommand ===
+    ======================
+'''
 def executeCommand(ps, cmdline):
     cmdparts= cmdline.split()
     cmd= cmdparts[0].upper()
@@ -186,6 +307,7 @@ def executeCommand(ps, cmdline):
 
     # quit
     if cmd=='Q' or cmd=='QUIT' or cmd=='EXIT' or cmd=='BYE':
+        print('Do visit the Basement again!')
         exit(0)
 
     # move, with go/jump
@@ -207,7 +329,7 @@ def executeCommand(ps, cmdline):
         xmove(ps, direction)
         return
 
-    if cmd=='PICKUP' or cmd=='GET' or cmd=='TAKE' or cmd=='STEAL':
+    if cmd=='PICK' or cmd=='PICKUP' or cmd=='GET' or cmd=='TAKE' or cmd=='STEAL':
         if cmdparts==[]:
             print(Messages['NoObject'])
             return
@@ -217,16 +339,65 @@ def executeCommand(ps, cmdline):
             if obj!=None:
                 pickup(ps, obj)
                 return
-            else:
-                print('Nem targy volt')
+            enemy= decodeEnemy(strObject)
+            if enemy!=None:
+                print(Messages['PickupMonster'])
                 return
+        return
 
     if cmd=='INVENTORY' or cmd=='LIST':
-        inven(ps)
+        inventory(ps)
+        return
+
+    if cmd=='FIGHT' or cmd=='ATTACK':
+        if cmdparts==[]:
+            print('Talaljuk ki, melyik szorny van itt: ', ps.position)
+            enemy= findEnemyHere(ps)
+#           print('Ez lenne az:', enemy)
+        else:
+            strEnemy= cmdparts[0].upper()
+            enemy= decodeEnemy(strEnemy)
+#           print('Ezzel akarsz harcolni: ', enemy)
+        fight(ps, enemy)
+        return
+
+    if cmd=='BOMB' or cmd=='BLOW':
+       bomb(ps)
+       return
+
+    if cmd=='READ':
+        if ps.position==OracleRoom:
+            print('The danger here is pretty thick, but say <AARDVARK> you\'ll get out quick!')
+        else:
+            print('Nothing here to read... how dull!')
+        return
+
+    if cmd=='SAY':
+        if cmdparts!=[] and cmdparts[0].upper()=='AARDVARK' and\
+           ps.position in (BottomOfPit, OracleRoom):
+            if ps.position==BottomOfPit:
+                ps.position= OracleRoom
+            elif ps.position==OracleRoom:
+                ps.position= BottomOfPit
+            ps.describeRoom(ps.position)
+        else:
+            print('Nothing happens.')
+        return
+
+    if cmd=='HELP':
+        print('Your cries go unheard, pitiful wretch.')
+        return
+
+    if cmd=='WAIT':
+        print('Time passes...')
         return
 
     print(Messages['UnknownCommand'])
-
+'''
+============
+=== main ===
+============
+'''
 def main():
     ps= PlayerState()
     ps.describeRoom(ps.position)
@@ -234,6 +405,7 @@ def main():
         cmdline= ''
         while cmdline=='':
             cmdline= input("\n* ")
+        print('')
         executeCommand(ps, cmdline)
 
 main()

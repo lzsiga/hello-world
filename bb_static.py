@@ -6,6 +6,12 @@
 from typing import Set, Dict
 from bb_types import *
 
+# special name to represent the locations of objects hold by the player
+Player= object()
+
+# special name to represent the locations of dead monsters
+Void= object()
+
 FallingDeath= Death("Fall", "You fall to your Doom...");
 BurningDeath= Death("Burn", "You burn in the flames!");
 
@@ -57,16 +63,16 @@ Grate28= Grate()
 Door411= Door()
 Door612= Door()
 
-allGates= [Grate28, Door411, Door612]
+allGates= {Grate28, Door411, Door612}
 
-Mantis= Monster("Mantis", "A Giant Mantis crouches nearby, ready to pounce!")
-Iguana= Monster("Iguana", "A huge Iguana paces restlessly nearby, keeping an eye on you!")
-Spider= Monster("Spider", "A giant white Spider mandibles twitching, towers above you!")
-Terror= Monster("Nameless Terror",
+Mantis= Monster(LostBattle,  "Mantis", "A Giant Mantis crouches nearby, ready to pounce!")
+Iguana= Monster(SlimyCavern, "Iguana", "A huge Iguana paces restlessly nearby, keeping an eye on you!")
+Spider= Monster(CobwebRoom,  "Spider", "A giant white Spider mandibles twitching, towers above you!")
+Terror= Monster(OracleRoom,  "Nameless Terror",
   "The Nameless Terror arises from a pit" \
   ", blocking your retreat with slimy tentacles!")
 
-allMonsters=  [Mantis, Iguana, Spider, Terror]
+allMonsters= {Mantis, Iguana, Spider, Terror}
 
 LostBattle.monster= Mantis
 OracleRoom.monster= Terror
@@ -76,6 +82,10 @@ SlimyCavern.monster= Iguana
 Ruins.gate= GuardPost.gate= Grate28
 LostBattle.gate= Cell.gate= Door411
 OracleRoom.gate= Office.gate= Door612
+
+Orc= ActiveMonster("Orc", "There is an angry Orc nearby!")
+
+allEnemies= allMonsters.union({Orc})
 
 BottomOfPit.lDesc= \
   "You stand at the bottom of a large pit." \
@@ -171,8 +181,10 @@ GuardPost.travel.put("up", [Grate28, Ruins])
 GuardPost.travel.put("s", CobwebRoom)
 
 MazeA.travel.put("n", MazeA)
+MazeA.travel.put("nw", MazeA)
 MazeA.travel.put("s", MazeA)
-MazeA.travel.put("se", MazeA)
+MazeA.travel.put("se", MazeB)
+MazeA.travel.put("e", MazeC)
 
 NarrowLedge.travel.merge({ \
   "down": RushingStream, \
@@ -200,8 +212,8 @@ MazeB.travel.put("sw", MazeC)
 MazeB.travel.put("w",  MazeA)
 
 MazeC.travel.merge({\
-  "n": MazeB, "ne": MazeC,       "e": MazeB, \
-  "s": MazeB, "w":  NarrowLedge, "nw": MazeA})
+  "n": MazeB, "ne": MazeC,       "e": MazeC, \
+  "s": MazeC, "w":  NarrowLedge, "nw": MazeA})
 
 RushingStream.travel.put("default", SlimyCavern)
 RushingStream.travel.put("up", SlimyCavern)
@@ -217,6 +229,8 @@ SteamyCave.travel.merge({\
 FierySpire.travel.put("default", BurningDeath)
 FierySpire.travel.put("up", SteamyCave)
 
+MaxItems= 5
+
 Messages=dict()
 Messages['BadDirection']=   'Cannot move: bad direction (valid: Up, Down, N, NE, E, SE, S, SW, W, NW)'
 Messages['NoWay']=          'Cannot move into that direction';
@@ -224,11 +238,12 @@ Messages['UnknownCommand']= 'I don\'t understand this command'
 Messages['ClosedGrate']=    'The grate is closed and locked!';
 Messages['ClosedDoor']=     'The door is closed and locked!';
 Messages['NoObject']=       'Bad command: direct object missing.';
-Messages['EnemyObject']=    'You cannot pickup a Monster!';
+Messages['PickupMonster']=  'You manifest some pretty suicidal tendencies, fella!';
 Messages['ObstacleObject']= 'You cannot pickup an Obstacle!';
 Messages['UnmoveableObject']= 'You cannot move it.';
-Messages['AlreadyTaken']=   'You\'ve already taken it.';
+Messages['AlreadyTaken']=   'You already have it.';
 Messages['EmptyInventory']= 'Your hands are empty.';
-Messages['Inventory']=      'You have got:';
-Messages['Taken']=          'You got the';
+Messages['Inventory']=      'You have got %d item(s):';
+Messages['Taken']=          'You got the %s!';
 Messages['ObjNotHere']=     'That object isn\'t here.';
+Messages['HandsFull']=      'Your arms are full... you can carry no more.';

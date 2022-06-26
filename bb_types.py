@@ -1,5 +1,5 @@
 # Frank DaCosta: Writing BASIC adventure programs for the TRS-80
-# Basement and Beasties
+# Basements and Beasties
 
 # Type and constant-definitions that aren't specific to this game
 # Also declaration of variables "allRooms", "allDarkRooms", "allGates",
@@ -43,6 +43,8 @@ class Room:
     self.gate= False
   def __repr__(self):
     return self.sDesc
+  def __str__(self):
+    return self.sDesc
 
 allRooms: Set[Room]
 
@@ -50,6 +52,8 @@ class DarkRoom(Room):
   def __init__(self, sDesc, lDesc):
     super().__init__(sDesc, lDesc)
     self.isDark= True
+  def __str__(self):
+    return self.sDesc
 
 allDarkRooms: Set[DarkRoom]
 
@@ -99,18 +103,24 @@ class Monster(Obstacle):
   msg= {}
   msg.update (Obstacle.msg)
   msg["stop"]= "The monster blocks your way!"
-  def __init__(self, sDesc, lDesc):
+  def __init__(self, originalPosition, sDesc, lDesc):
     super().__init__(sDesc)
+    self.originalPosition= originalPosition
     self.lDesc= lDesc
 
 allMonsters: Set[Monster]
+
+class ActiveMonster:
+  def __init__(self, sDesc, lDesc):
+    self.sDesc= sDesc
+    self.lDesc= lDesc
 
 # Objects (objs): the things you can take/drop/use
 # The constant data only
 # the actual position of the objects is variable so
 # it will be stored elsewhere
 class Obj:
-  def __init__(self, originalPosition, sDesc, lDesc):   
+  def __init__(self, originalPosition, sDesc, lDesc):
     self.originalPosition= originalPosition
     self.sDesc= sDesc
     self.lDesc= lDesc
