@@ -24,6 +24,7 @@ class PlayerState:
     self.monsterState= {}
     for m in allMonsters:
        self.monsterState[m]= isAlive
+    self.monsterState[Orc]= isDead
 
   def resetGates(self):
     self.gateState= {}
@@ -69,13 +70,48 @@ class PlayerState:
   def enterRoom(self, intoroom):
     self.position= intoroom
     if intoroom.isDark:
-      print ("It is pitch dark! You may fall into a pit!")
-      # random death
+        print ("It is pitch dark! You may fall into a pit!")
+        # random death
     else:
-      self.describeRoom(intoroom)
-      self.visitedRooms.add(intoroom)
-#endclass PlayerState
+        self.describeRoom(intoroom)
+        self.visitedRooms.add(intoroom)
 
+#    =================
+#    === getObject ===
+#    =================
+#    give the Object to the Player removing it from
+#    place where it is (should be the room the Player is now)
+#    no checks here
+
+  def getObject(self, obj):
+    fromRoom= self.positions[obj]
+    self.belongings[Player].add(obj)
+    self.belongings[fromRoom].remove(obj)
+    self.positions[obj]= Player
+
+#    =================
+#    === putObject ===
+#    =================
+#    put the Object from the Player to the specified room
+#    or the Room where to Player is now
+#    no checks here
+#    Note: 'toRoom' is used when the Player dies and
+#    we put the Torch back to the Ruins
+
+  def putObject(self, obj, toRoom='Default'):
+    if toRoom=='Default':
+        toRoom= self.position
+    fromRoom= self.positions[obj]
+    self.belongings[Player].remove(obj)
+    self.belongings[toRoom].add(obj)
+    self.positions[obj]= toRoom
+
+#endclass PlayerState
+'''
+    =======================
+    === decodeDirection ===
+    =======================
+'''
 def decodeDirection (strDir):
     if strDir=='UP' or strDir=='U':
         ret= 'up';
@@ -177,11 +213,8 @@ def pickup(ps, obj):
     if len(ps.belongings[Player]) >= MaxItems:
         print(Messages['HandsFull'])
         return
-
-    ps.belongings[Player].add(obj)
-    ps.positions[obj]= Player
+    ps.getObject(obj)
     print(Messages['Taken'] % (obj.sDesc))
-    ps.belongings[ps.position].remove(obj)
 '''
     =================
     === inventory ===
@@ -201,20 +234,14 @@ def inventory(ps):
     ============
 '''
 def drop(ps, obj):
-    if ps.positions[obj]==Player:
-        print(Messages['AlreadyTaken'])
+    if ps.positions[obj]!=Player:
+        print(Messages['DontHaveIt'])
         return
-    if ps.positions[obj]!=ps.position:
-        print(Messages['ObjNotHere'])
+    if (obj==Grenade):
+        bomb(ps)
         return
-    if len(ps.belongings[Player]) >= MaxItems:
-        print(Messages['HandsFull'])
-        return
-
-    ps.belongings[Player].add(obj)
-    ps.positions[obj]= Player
-    print(Messages['Taken'] % (obj.sDesc))
-    ps.belongings[ps.position].remove(obj)
+    ps.putObject(obj)
+    print(Messages['Dropped'] % (obj.sDesc))
 '''
     ============
     === dead ===
@@ -223,15 +250,14 @@ def drop(ps, obj):
 def dead(ps):
     print('Well, fine adventurer! You are in a real jam! Fortunately, we can bring you back!')
     print('...POOF!!...')
-    stuff= ps.belongings[Player]
+# 'copy' is important here (cf RuntimeError: Set changed size during iteration)
+    stuff= ps.belongings[Player].copy()
     for s in stuff:
         if s==Torch:
             toRoom= Ruins
         else:
             toRoom= ps.position
-        ps.positions[s]= toRoom
-        ps.belongings[Player].remove(s)
-        ps.belongings[toRoom].add(s)
+        ps.putObject(s, toRoom)
     ps.describeRoom(ps.position)
 '''
     =====================
@@ -257,6 +283,9 @@ def fight(ps,enemy):
     if ps.positions[Axe] != Player:
         print('With what weapon?')
         return
+
+    print(Messages['FightIt'] % (enemy))
+
     if enemy==Spider or enemy==Terror:
         print('Your axe swings are dynamic... but ineffective!')
         counterAttack(ps, enemy)
@@ -291,9 +320,7 @@ def bomb(ps):
         ps.monsterState[enemy]= isDead
     else:
         print('The grenade falls to the floor and nothing happens.')
-    ps.positions[Grenade]= ps.position
-    ps.position.belongings.add(Grenade)
-    ps.belongings[Player].remove(Grenade)
+    ps.putObject(Grenade)
 '''
     ======================
     === executeCommand ===
@@ -345,15 +372,27 @@ def executeCommand(ps, cmdline):
                 return
         return
 
+    if cmd=='DROP' or cmd=='THROW':
+        if cmdparts==[]:
+            print(Messages['NoObject'])
+            return
+        else:
+            strObject= cmdparts[0].upper()
+            obj= decodeObject(strObject)
+            if obj!=None:
+                drop(ps, obj)
+                return
+            print(Messages['DontHaveIt'])
+            return
+        return
+
     if cmd=='INVENTORY' or cmd=='LIST':
         inventory(ps)
         return
 
     if cmd=='FIGHT' or cmd=='ATTACK':
         if cmdparts==[]:
-            print('Talaljuk ki, melyik szorny van itt: ', ps.position)
             enemy= findEnemyHere(ps)
-#           print('Ez lenne az:', enemy)
         else:
             strEnemy= cmdparts[0].upper()
             enemy= decodeEnemy(strEnemy)
