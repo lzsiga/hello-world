@@ -39,8 +39,8 @@ class Room:
     self.lDesc= lDesc
     self.travel= Travel();
     self.isDark= False
-    self.monster= False
-    self.gate= False
+    self.monster= None
+    self.gate= None
   def __repr__(self):
     return self.sDesc
   def __str__(self):

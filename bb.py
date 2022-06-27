@@ -8,73 +8,77 @@ from bb_static import *
 
 # variable data
 class PlayerState:
-  def __init__(self):
-    self.reset()
+  def __init__(ps):
+    ps.reset()
 
-  def reset(self):
-    self.visitedRooms= set()
-    self.ownedObjs= set()
-    self.position= BottomOfPit
+  def reset(ps):
+    ps.visitedRooms= set()
+    ps.ownedObjs= set()
+    ps.position= BottomOfPit
   # reset state of the inanimated obstacles
-    self.resetGates()
-    self.resetMonsters()
-    self.resetPositions()
+    ps.resetGates()
+    ps.resetMonsters()
+    ps.resetPositions()
+    ps.killedStatic= 0
+    ps.killedActive= 0
 
-  def resetMonsters(self):
-    self.monsterState= {}
+  def resetMonsters(ps):
+    ps.monsterState= {}
     for m in allMonsters:
-       self.monsterState[m]= isAlive
-    self.monsterState[Orc]= isDead
+       ps.monsterState[m]= isAlive
+    ps.monsterState[Orc]= isDead
 
-  def resetGates(self):
-    self.gateState= {}
+  def resetGates(ps):
+    ps.gateState= {}
     for g in allGates:
-       self.gateState[g]= isClosed
+       ps.gateState[g]= isClosed
 
   # the player and the rooms can have belongings,
   # the monsters cannot (for now)
   # now everyone loses everything
   # then every object goes to its original place
-  def resetPositions(self):
-    self.belongings: Dict[object, Set] = dict()
-    self.belongings[Player]= set()
+  def resetPositions(ps):
+    ps.belongings: Dict[object, Set] = dict()
+    ps.belongings[Player]= set()
     for r in allRooms:
-       self.belongings[r]= set()
-    self.positions= dict()
+       ps.belongings[r]= set()
+    ps.positions= dict()
     for o in allObjs:
       toRoom= o.originalPosition
-      self.positions[o]= toRoom
-      self.belongings[toRoom].add(o)
+      ps.positions[o]= toRoom
+      ps.belongings[toRoom].add(o)
     for m in allMonsters:
       toRoom= m.originalPosition
-      self.positions[m]= toRoom
-      self.belongings[toRoom].add(m)
+      ps.positions[m]= toRoom
+      ps.belongings[toRoom].add(m)
 
-  def describeRoom(self, room="Default", which="Default"):
-    if room=="Default": room= self.position
+  def describeRoom(ps, room="Default", which="Default"):
+    if room=="Default": room= ps.position
     if which=="Default":
-      if room in self.visitedRooms: which= "Short"
-      else:                         which= "Long"
+      if room in ps.visitedRooms: which= "Short"
+      else:                       which= "Long"
     if which=="Short":  print (room.sDesc)
     elif which=="Long": print (room.lDesc)
     else:               print ("Serious problem in method PlayerState.describeRoom")
-    self.listObjsInRoom(room)
+    ps.listObjsInRoom(room)
 
-  def listObjsInRoom(self, room="Default", separator=True):
-    if room=="Default": room= self.positions[Player];
-    if len(self.belongings[room])==0: return
+  def listObjsInRoom(ps, room="Default", separator=True):
+    if room=="Default": room= ps.positions[Player];
+    if len(ps.belongings[room])==0: return
     if (separator): print()
-    for o in self.belongings[room]:
+    for o in ps.belongings[room]:
       print (o.lDesc)
 
-  def enterRoom(self, intoroom):
-    self.position= intoroom
-    if intoroom.isDark:
+  def enterRoom(ps, intoRoom):
+    ps.position= intoRoom
+    if intoRoom.isDark and ps.positions[Torch]!=intoRoom and\
+       ps.positions[Torch]!=Player:
         print ("It is pitch dark! You may fall into a pit!")
         # random death
     else:
-        self.describeRoom(intoroom)
-        self.visitedRooms.add(intoroom)
+        ps.describeRoom(intoRoom)
+        if not intoRoom in ps.visitedRooms:
+            ps.visitedRooms.add(intoRoom)
 
 #    =================
 #    === getObject ===
@@ -83,11 +87,11 @@ class PlayerState:
 #    place where it is (should be the room the Player is now)
 #    no checks here
 
-  def getObject(self, obj):
-    fromRoom= self.positions[obj]
-    self.belongings[Player].add(obj)
-    self.belongings[fromRoom].remove(obj)
-    self.positions[obj]= Player
+  def getObject(ps, obj):
+    fromRoom= ps.positions[obj]
+    ps.belongings[Player].add(obj)
+    ps.belongings[fromRoom].remove(obj)
+    ps.positions[obj]= Player
 
 #    =================
 #    === putObject ===
@@ -98,15 +102,29 @@ class PlayerState:
 #    Note: 'toRoom' is used when the Player dies and
 #    we put the Torch back to the Ruins
 
-  def putObject(self, obj, toRoom='Default'):
+  def putObject(ps, obj, toRoom='Default'):
     if toRoom=='Default':
-        toRoom= self.position
-    fromRoom= self.positions[obj]
-    self.belongings[Player].remove(obj)
-    self.belongings[toRoom].add(obj)
-    self.positions[obj]= toRoom
+        toRoom= ps.position
+    fromRoom= ps.positions[obj]
+    ps.belongings[Player].remove(obj)
+    ps.belongings[toRoom].add(obj)
+    ps.positions[obj]= toRoom
+  '''
+    =================
+    === deadEnemy ===
+    =================
+    The Orc is a special case:
+    it will be resurrected sooner or later
+  '''
+  def deadEnemy(ps, enemy):
+    ps.positions[enemy]= Void
+    ps.monsterState[enemy]= isDead
+    ps.belongings[ps.position].remove(enemy)
+    if enemy==Orc:
+        ps.killedStatic += 1
+    else:
+        ps.killedActive += 1
 
-#endclass PlayerState
 '''
     =======================
     === decodeDirection ===
@@ -183,21 +201,24 @@ def xmove(ps, direction):
         print (Messages['NoWay'])
         return
     if isinstance(moveto, list):
-        for l in moveto:
+        mvlist= moveto
+        for l in mvlist:
             if isinstance(l, Gate):
-                if not l.isOpen:
+                if ps.gateState[l]==isClosed:
                     if isinstance(l, Grate):
                         print(Messages['ClosedGrate'])
                     else:
                         print(Messages['ClosedDoor'])
                     return
             elif isinstance(l, Monster):
-                print('  Szorny:', l, type(l))
+                if ps.monsterState[l]==isAlive:
+                    print('The creature will not let your pass!')
+                    return
             elif isinstance(l, Room):
-                print('  Szoba:', l, type(l))
-        return
+                moveto= l
+                break
     ps.position= moveto
-    ps.describeRoom(ps.position)
+    ps.enterRoom(ps.position)
 '''
     ==============
     === pickup ===
@@ -225,7 +246,7 @@ def inventory(ps):
     if len(stuff)==0:
         print(Messages['EmptyInventory'])
     else:
-        print(Messages['Inventory'] % (len(stuff)))
+        print(Messages['Inventory'])
         for s in stuff:
             print(' ', s.sDesc)
 '''
@@ -249,7 +270,7 @@ def drop(ps, obj):
 '''
 def dead(ps):
     print('Well, fine adventurer! You are in a real jam! Fortunately, we can bring you back!')
-    print('...POOF!!...')
+    print("...POOF!!...\n")
 # 'copy' is important here (cf RuntimeError: Set changed size during iteration)
     stuff= ps.belongings[Player].copy()
     for s in stuff:
@@ -258,7 +279,8 @@ def dead(ps):
         else:
             toRoom= ps.position
         ps.putObject(s, toRoom)
-    ps.describeRoom(ps.position)
+    ps.position= BottomOfPit
+    ps.enterRoom(ps.position)
 '''
     =====================
     === counterAttack ===
@@ -292,9 +314,7 @@ def fight(ps,enemy):
     else:
         if randrange(0,100) < 70:
             print('Your magic axe connects! The creature vanishes in a puff of foul smoke!')
-            ps.positions[enemy]= Void
-            ps.monsterState[enemy]= isDead
-            ps.belongings[ps.position].remove(enemy)
+            ps.deadEnemy(enemy)
         else:
             print('Missed it! FIE!')
             counterAttack(ps, enemy)
@@ -309,15 +329,14 @@ def bomb(ps):
         return
     if ps.positions[Spider] == ps.position:
         enemy= Spider
-    elif ps.position[Terror] == ps.position:
+    elif ps.positions[Terror] == ps.position:
         enemy= Terror
     else:
         enemy= None
     if enemy != None:
         print('The grenade explodes in a silent flash of weird blue light...'\
               'and the creature is gone!')
-        ps.positions[enemy]= Void
-        ps.monsterState[enemy]= isDead
+        ps.deadEnemy(enemy)
     else:
         print('The grenade falls to the floor and nothing happens.')
     ps.putObject(Grenade)
@@ -370,6 +389,7 @@ def executeCommand(ps, cmdline):
             if enemy!=None:
                 print(Messages['PickupMonster'])
                 return
+            print('Pickup what?!')
         return
 
     if cmd=='DROP' or cmd=='THROW':
@@ -388,6 +408,10 @@ def executeCommand(ps, cmdline):
 
     if cmd=='INVENTORY' or cmd=='LIST':
         inventory(ps)
+        return
+
+    if cmd=='LOOK':
+        ps.describeRoom(which='Long')
         return
 
     if cmd=='FIGHT' or cmd=='ATTACK':
@@ -418,7 +442,7 @@ def executeCommand(ps, cmdline):
                 ps.position= OracleRoom
             elif ps.position==OracleRoom:
                 ps.position= BottomOfPit
-            ps.describeRoom(ps.position)
+            ps.enterRoom(ps.position)
         else:
             print('Nothing happens.')
         return
@@ -431,6 +455,47 @@ def executeCommand(ps, cmdline):
         print('Time passes...')
         return
 
+    if cmd=='OPEN' or cmd=='UNLOCK':
+        gate= ps.position.gate
+        if gate==None:
+            print('There is no gate.')
+            return
+        if cmdparts != [] and cmdparts[0].upper() != gate.sDesc.upper():
+            print('I see nothing of the sort here.')
+            return
+        if ps.gateState[gate]==isOpen:
+            print('You don\'t need to.')
+            return
+        if not ps.positions[Key] in [Player, ps.position]:
+            print('You have no key!')
+            return
+        print('The gate is open!')
+        ps.gateState[gate]= isOpen
+        return
+
+    if cmd=='CLOSE' or cmd=='LOCK':
+        gate= ps.position.gate
+        if gate==None:
+            print('There is no gate.')
+            return
+        if cmdparts != [] and cmdparts[0].upper() != gate.sDesc.upper():
+            print('I see nothing of the sort here.')
+            return
+        if ps.gateState[gate]==isClosed:
+            print('You don\'t need to.')
+            return
+        print('The gate is closed and locked!')
+        ps.gateState[gate]= isClosed
+        return
+
+    if cmd=='SCORE':
+        score= 5*len(ps.visitedRooms) + 20*ps.killedStatic + 25*ps.killedActive
+        for t in allTreasures:
+            if ps.positions[t]==BottomOfPit:
+                score += 10
+        print('Your score is:', score)
+        return
+
     print(Messages['UnknownCommand'])
 '''
 ============
@@ -439,7 +504,7 @@ def executeCommand(ps, cmdline):
 '''
 def main():
     ps= PlayerState()
-    ps.describeRoom(ps.position)
+    ps.enterRoom(ps.position)
     while True:
         cmdline= ''
         while cmdline=='':

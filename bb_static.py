@@ -12,7 +12,7 @@ Player= object()
 # special name to represent the locations of dead monsters
 Void= object()
 
-FallingDeath= Death("Fall", "You fall to your Doom...");
+FallingDeath= Death("Fall", "You fall to your doom...");
 BurningDeath= Death("Burn", "You burn in the flames!");
 
 BottomOfPit   = Room("Bottom of Pit", "")
@@ -22,7 +22,7 @@ LostBattle    = DarkRoom("Lost Battle", "")
 TombRoom      = DarkRoom("Tomb Room", "")
 OracleRoom    = DarkRoom("Oracle Room", "")
 TreasureVault = DarkRoom("Treasure Vault", "")
-GuardPost     = DarkRoom("Guard Post", "");
+GuardPost     = DarkRoom("Guard Post", "")
 MazeA         = DarkRoom("You are lost in a maze!", "You are lost in a maze!")
 NarrowLedge   = DarkRoom("Narrow Ledge", "")
 Cell          = DarkRoom("Cell", "")
@@ -56,8 +56,8 @@ Onyx=    Obj(SteamyCave,    "Onyx",           "There is a polished onyx here!")
 Coin=    Obj(TreasureVault, "Coin",           "There is a coin here worth millions!")
 HourG=   Obj(OracleRoom,    "Hourglass",      "There is an ancient hourglass here!")
 
-allTreasure= {JCrown, GCube, DBeetle, SBelt, PRing, Onyx, Coin, HourG}
-allObjs= allTreasure.union({Torch, Axe, Key, Grenade})
+allTreasures= {JCrown, GCube, DBeetle, SBelt, PRing, Onyx, Coin, HourG}
+allObjs= allTreasures.union({Torch, Axe, Key, Grenade})
 
 Grate28= Grate()
 Door411= Door()
@@ -112,7 +112,7 @@ OracleRoom.lDesc= \
 TreasureVault.lDesc= \
   "At last! The Treasure Vault!" \
   " What a shame that so much of the original wealth has been removed!" \
-  " There is a southeast doot out."
+  " There is a southeast door out."
 GuardPost.lDesc= \
   "This was once the main guardpost to the underground kingdom of the Trolls." \
   " There is entrance-grate set in the roof and a south exit door."
@@ -129,7 +129,7 @@ Office.lDesc= \
   " There are two doors, to the northwest and east" \
   ", and a rocky hole in the south wall."
 LunchRoom.lDesc= \
-  "This is the lunch room comlete with coke machine... empty, unfortunately." \
+  "This is the lunch room complete with coke machine... empty, unfortunately." \
   " There is a door to the west."
 CobwebRoom.lDesc= \
   "What a creepy place! There are cobwebs everywhere!" \
@@ -153,13 +153,20 @@ FierySpire.lDesc= \
 
 #pages 25-26 [orig: 18-19]
 BottomOfPit.travel.merge({ \
-  "default": BottomOfPit, "magical": OracleRoom,
+  "magical": OracleRoom, "n": BottomOfPit,  \
+  "se": BottomOfPit, "s": BottomOfPit, "sw": BottomOfPit, \
+  "w": BottomOfPit, "nw": BottomOfPit, \
   "down": WeaponsRoom, "ne": Ruins, "e": Ruins})
 
 Ruins.travel.put("down", [Grate28, GuardPost])
-Ruins.travel.put("default", Ruins)
+Ruins.travel.put("nw", Ruins)
 Ruins.travel.put("sw", BottomOfPit)
 Ruins.travel.put("w", BottomOfPit)
+Ruins.travel.put("n", Ruins)
+Ruins.travel.put("ne", Ruins)
+Ruins.travel.put("e", Ruins)
+Ruins.travel.put("se", Ruins)
+Ruins.travel.put("s", Ruins)
 
 WeaponsRoom.travel.put("up", BottomOfPit)
 WeaponsRoom.travel.put("e",  LostBattle)
@@ -172,7 +179,7 @@ LostBattle.travel.put("w",  WeaponsRoom)
 TombRoom.travel.put("sw", LostBattle)
 
 OracleRoom.travel.put("magical", BottomOfPit)
-OracleRoom.travel.put("se", [Terror, Door612, CobwebRoom])
+OracleRoom.travel.put("se", [Terror, Door612, Office])
 OracleRoom.travel.put("down", FallingDeath)
 
 TreasureVault.travel.put("se", CobwebRoom);
@@ -198,7 +205,7 @@ Office.travel.put("nw", [Door612, OracleRoom])
 Office.travel.put("e", LunchRoom)
 Office.travel.put("s", SlimyCavern)
 
-LunchRoom.travel.put("w", "Office")
+LunchRoom.travel.put("w", Office)
 
 CobwebRoom.travel.put("n", GuardPost)
 CobwebRoom.travel.put("s", SteamyCave)
@@ -215,9 +222,11 @@ MazeC.travel.merge({\
   "n": MazeB, "ne": MazeC,       "e": MazeC, \
   "s": MazeC, "w":  NarrowLedge, "nw": MazeA})
 
-RushingStream.travel.put("default", SlimyCavern)
-RushingStream.travel.put("up", SlimyCavern)
-RushingStream.travel.put("down", SlimyCavern)
+RushingStream.travel.merge({\
+  "n":    SlimyCavern, "ne": SlimyCavern, "e":  SlimyCavern, \
+  "se":   SlimyCavern, "s":  SlimyCavern, "sw": SlimyCavern, \
+  "w":    SlimyCavern, "nw": SlimyCavern, "up": SlimyCavern, \
+  "down": SlimyCavern})
 
 SlimyCavern.travel.put("n",  Office)
 SlimyCavern.travel.put("ne", [Iguana, SteamyCave])
@@ -226,27 +235,30 @@ SteamyCave.travel.merge({\
   "up": CobwebRoom, "down": FierySpire,
   "n":  CobwebRoom, "sw": SlimyCavern})
 
-FierySpire.travel.put("default", BurningDeath)
-FierySpire.travel.put("up", SteamyCave)
+FierySpire.travel.merge({\
+    "n":    BurningDeath, "ne": BurningDeath, "e":  BurningDeath, \
+    "se":   BurningDeath, "s":  BurningDeath, "sw": BurningDeath, \
+    "w":    BurningDeath, "nw": BurningDeath, "up": SteamyCave,   \
+    "down": BurningDeath})
 
 MaxItems= 5
 
 Messages=dict()
 Messages['BadDirection']=   'Cannot move: bad direction (valid: Up, Down, N, NE, E, SE, S, SW, W, NW)'
-Messages['NoWay']=          'Cannot move into that direction'
-Messages['UnknownCommand']= 'I don\'t understand this command'
+Messages['NoWay']=          'You can\'t go that way.'
+Messages['UnknownCommand']= 'I don\'t understand this command.'
 Messages['ClosedGrate']=    'The grate is closed and locked!'
-Messages['ClosedDoor']=     'The door is closed and locked!'
+Messages['ClosedDoor']=     'The door is tightly shut and locked.'
 Messages['NoObject']=       'Bad command: direct object missing.'
 Messages['PickupMonster']=  'You manifest some pretty suicidal tendencies, fella!'
 Messages['ObstacleObject']= 'You cannot pickup an Obstacle!'
-Messages['UnmoveableObject']= 'You cannot move it.'
-Messages['AlreadyTaken']=   'You already have it.'
+Messages['UnmoveableObject']= 'You try unsuccessfully... Immovable!'
+Messages['AlreadyTaken']=   'You already have it!'
 Messages['EmptyInventory']= 'Your hands are empty.'
-Messages['Inventory']=      'You have got %d item(s):'
+Messages['Inventory']=      'You have the following:'
 Messages['Taken']=          'You got the %s!'
 Messages['Dropped']=        'You dropped the %s!'
 Messages['ObjNotHere']=     'That object isn\'t here.'
 Messages['HandsFull']=      'Your arms are full... you can carry no more.'
-Messages['DontHaveIt']=     'You don\'t have it'
-Messages['FightIt']=        'You attack ths %s!'
+Messages['DontHaveIt']=     'You don\'t have it!'
+Messages['FightIt']=        'You attack the %s!'
