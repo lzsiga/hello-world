@@ -1,5 +1,5 @@
 # Frank DaCosta: Writing BASIC adventure programs for the TRS-80
-# Basement and Beasties
+# Basements and Beasties
 
 # constant data
 
@@ -83,7 +83,7 @@ Ruins.gate= GuardPost.gate= Grate28
 LostBattle.gate= Cell.gate= Door411
 OracleRoom.gate= Office.gate= Door612
 
-Orc= ActiveMonster("Orc", "There is an angry Orc nearby!")
+Orc= ActiveMonster("Orc", "There is an Angry Orc nearby!")
 
 allEnemies= allMonsters.union({Orc})
 

@@ -102,7 +102,7 @@ class Grate(Gate):
 class Monster(Obstacle):
   msg= {}
   msg.update (Obstacle.msg)
-  msg["stop"]= "The monster blocks your way!"
+  msg['stop']= 'The creature will not let you pass!'
   def __init__(self, originalPosition, sDesc, lDesc):
     super().__init__(sDesc)
     self.originalPosition= originalPosition
@@ -114,6 +114,8 @@ class ActiveMonster:
   def __init__(self, sDesc, lDesc):
     self.sDesc= sDesc
     self.lDesc= lDesc
+  def __str__(self):
+    return self.sDesc
 
 # Objects (objs): the things you can take/drop/use
 # The constant data only

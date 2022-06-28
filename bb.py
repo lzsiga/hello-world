@@ -19,6 +19,8 @@ class PlayerState:
     ps.resetGates()
     ps.resetMonsters()
     ps.resetPositions()
+    ps.resetOrc()
+    ps.playerDeath= 0 # fight/fall/burning/etc: negative score
     ps.killedStatic= 0
     ps.killedActive= 0
 
@@ -26,17 +28,17 @@ class PlayerState:
     ps.monsterState= {}
     for m in allMonsters:
        ps.monsterState[m]= isAlive
-    ps.monsterState[Orc]= isDead
 
   def resetGates(ps):
     ps.gateState= {}
     for g in allGates:
-       ps.gateState[g]= isClosed
-
-  # the player and the rooms can have belongings,
-  # the monsters cannot (for now)
-  # now everyone loses everything
-  # then every object goes to its original place
+      ps.gateState[g]= isClosed
+  '''
+    the player and the rooms can have belongings,
+    the monsters cannot (for now)
+    now everyone loses everything
+    then every object goes to its original place
+  '''
   def resetPositions(ps):
     ps.belongings: Dict[object, Set] = dict()
     ps.belongings[Player]= set()
@@ -52,6 +54,11 @@ class PlayerState:
       ps.positions[m]= toRoom
       ps.belongings[toRoom].add(m)
 
+  def resetOrc(ps):
+    ps.positions[Orc]= Void
+    ps.monsterState[Orc]= isDead # waits
+    ps.orcCounter= randrange(10,20) # when it becomes zero, Orc spawns
+
   def describeRoom(ps, room="Default", which="Default"):
     if room=="Default": room= ps.position
     if which=="Default":
@@ -62,12 +69,25 @@ class PlayerState:
     else:               print ("Serious problem in method PlayerState.describeRoom")
     ps.listObjsInRoom(room)
 
-  def listObjsInRoom(ps, room="Default", separator=True):
+  def listObjsInRoom(ps, room="Default"):
     if room=="Default": room= ps.positions[Player];
     if len(ps.belongings[room])==0: return
-    if (separator): print()
+
+    nprint= 0
     for o in ps.belongings[room]:
-      print (o.lDesc)
+      if not isinstance(o, Monster):
+        nprint += 1;
+        if (nprint==1):
+            print('')
+        print (o.lDesc)
+
+    nprint= 0
+    for o in ps.belongings[room]:
+      if isinstance(o, Monster):
+        nprint += 1;
+        if (nprint==1):
+            print('')
+        print (o.lDesc)
 
   def enterRoom(ps, intoRoom):
     ps.position= intoRoom
@@ -79,29 +99,29 @@ class PlayerState:
         ps.describeRoom(intoRoom)
         if not intoRoom in ps.visitedRooms:
             ps.visitedRooms.add(intoRoom)
-
-#    =================
-#    === getObject ===
-#    =================
-#    give the Object to the Player removing it from
-#    place where it is (should be the room the Player is now)
-#    no checks here
-
+  '''
+     =================
+     === getObject ===
+     =================
+     give the Object to the Player removing it from
+     place where it is (should be the room the Player is now)
+     no checks here
+  '''
   def getObject(ps, obj):
     fromRoom= ps.positions[obj]
     ps.belongings[Player].add(obj)
     ps.belongings[fromRoom].remove(obj)
     ps.positions[obj]= Player
-
-#    =================
-#    === putObject ===
-#    =================
-#    put the Object from the Player to the specified room
-#    or the Room where to Player is now
-#    no checks here
-#    Note: 'toRoom' is used when the Player dies and
-#    we put the Torch back to the Ruins
-
+  '''
+     =================
+     === putObject ===
+     =================
+     put the Object from the Player to the specified room
+     or the Room where to Player is now
+     no checks here
+     Note: 'toRoom' is used when the Player dies and
+     we put the Torch back to the Ruins
+  '''
   def putObject(ps, obj, toRoom='Default'):
     if toRoom=='Default':
         toRoom= ps.position
@@ -119,12 +139,13 @@ class PlayerState:
   def deadEnemy(ps, enemy):
     ps.positions[enemy]= Void
     ps.monsterState[enemy]= isDead
-    ps.belongings[ps.position].remove(enemy)
+    if enemy in ps.belongings[ps.position]:
+        ps.belongings[ps.position].remove(enemy)
     if enemy==Orc:
-        ps.killedStatic += 1
-    else:
         ps.killedActive += 1
-
+        ps.resetOrc()
+    else:
+        ps.killedStatic += 1
 '''
     =======================
     === decodeDirection ===
@@ -182,8 +203,11 @@ def decodeEnemy(strMonster):
     =====================
     === findEnemyHere ===
     =====================
+    The Orc has priority over passive monsters
 '''
 def findEnemyHere(ps):
+    if ps.positions[Orc]==ps.position:
+        return Orc
     stuff= ps.belongings[ps.position]
     for s in stuff:
         if isinstance(s, Monster):
@@ -205,18 +229,19 @@ def xmove(ps, direction):
         for l in mvlist:
             if isinstance(l, Gate):
                 if ps.gateState[l]==isClosed:
-                    if isinstance(l, Grate):
-                        print(Messages['ClosedGrate'])
-                    else:
-                        print(Messages['ClosedDoor'])
+                    print(l.msg['stop'])
                     return
             elif isinstance(l, Monster):
                 if ps.monsterState[l]==isAlive:
-                    print('The creature will not let your pass!')
+                    print(l.msg['stop'])
                     return
-            elif isinstance(l, Room):
+            else:
                 moveto= l
                 break
+    if isinstance(moveto, Death):
+        print(moveto.lDesc)
+        dead(ps)
+        return
     ps.position= moveto
     ps.enterRoom(ps.position)
 '''
@@ -269,8 +294,10 @@ def drop(ps, obj):
     ============
 '''
 def dead(ps):
+    print("")
     print('Well, fine adventurer! You are in a real jam! Fortunately, we can bring you back!')
     print("...POOF!!...\n")
+    ps.playerDeath += 1
 # 'copy' is important here (cf RuntimeError: Set changed size during iteration)
     stuff= ps.belongings[Player].copy()
     for s in stuff:
@@ -279,6 +306,7 @@ def dead(ps):
         else:
             toRoom= ps.position
         ps.putObject(s, toRoom)
+    ps.resetOrc()
     ps.position= BottomOfPit
     ps.enterRoom(ps.position)
 '''
@@ -458,7 +486,7 @@ def executeCommand(ps, cmdline):
     if cmd=='OPEN' or cmd=='UNLOCK':
         gate= ps.position.gate
         if gate==None:
-            print('There is no gate.')
+            print('There is nothing to open here.')
             return
         if cmdparts != [] and cmdparts[0].upper() != gate.sDesc.upper():
             print('I see nothing of the sort here.')
@@ -469,14 +497,14 @@ def executeCommand(ps, cmdline):
         if not ps.positions[Key] in [Player, ps.position]:
             print('You have no key!')
             return
-        print('The gate is open!')
+        print(gate.msg['opening'])
         ps.gateState[gate]= isOpen
         return
 
     if cmd=='CLOSE' or cmd=='LOCK':
         gate= ps.position.gate
         if gate==None:
-            print('There is no gate.')
+            print('There is nothing to close here.')
             return
         if cmdparts != [] and cmdparts[0].upper() != gate.sDesc.upper():
             print('I see nothing of the sort here.')
@@ -484,19 +512,52 @@ def executeCommand(ps, cmdline):
         if ps.gateState[gate]==isClosed:
             print('You don\'t need to.')
             return
-        print('The gate is closed and locked!')
+        print(gate.msg['closing'])
         ps.gateState[gate]= isClosed
         return
 
     if cmd=='SCORE':
-        score= 5*len(ps.visitedRooms) + 20*ps.killedStatic + 25*ps.killedActive
+        score = 5*len(ps.visitedRooms) + 20*ps.killedStatic + 25*ps.killedActive
+        score-= 20*ps.playerDeath
         for t in allTreasures:
             if ps.positions[t]==BottomOfPit:
                 score += 10
         print('Your score is:', score)
+        print('Orc counter is', ps.orcCounter)
+        return
+
+    if cmd=='SWIM':
+        if ps.position==RushingStream:
+            xmove(ps, 'w')
+        else:
+            print('You cannot swim here!')
         return
 
     print(Messages['UnknownCommand'])
+
+'''
+==================
+=== controlOrc ===
+==================
+'''
+def controlOrc(ps):
+    if not isinstance(ps.position, DarkRoom):
+        return
+    if ps.orcCounter > 0:
+        ps.orcCounter -= 1
+        return
+    ps.monsterState[Orc]= isAlive
+
+    newRoom= ps.position
+    ps.positions[Orc]= newRoom
+
+    print("")
+    print('There is an Angry Orc nearby!')
+    if randrange(0,100) < 75:
+        print('He swings out at you with a black scimitar!')
+        if randrange(0,100) < 40:
+            print('You are slashed in pieces.')
+            dead(ps)
 '''
 ============
 === main ===
@@ -511,5 +572,6 @@ def main():
             cmdline= input("\n* ")
         print('')
         executeCommand(ps, cmdline)
+        controlOrc(ps)
 
 main()
