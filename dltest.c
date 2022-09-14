@@ -1,7 +1,9 @@
 /* dltest.c */
 
 /* build:
-     gcc -o dltest -W -Wall -m64 dltest.c -ldl
+     gcc -m64 -o dltest -W -Wall dltest.c -ldl
+   build on AIX:
+     gcc -maix64 -o dltest -W -Wall -Wl,-blibpath:/usr/lib dltest.c -ldl
 
    options:
      -lazy |-now     RTLD_LAZY |RTLD_NOW
@@ -19,19 +21,38 @@
           /usr/local/lib64/libcrypto.so.3 \
           /usr/local/lib64/libssl.so.3[TLS_method]
 
-   output:
-     Testing "libm.so.6[asin,acos,atan2]", mode=0x102
+     output:
+        Testing "libm.so.6[asin,acos,atan2]", mode=0x102
         dlopen("libm.so.6",0x102)=0x110b060
         dlsym(0x110b060,"asin")=0x7fda86170a80
         dlsym(0x110b060,"acos")=0x7fda86170a10
         dlsym(0x110b060,"atan2")=0x7fda86170ac0
 
-     Testing "/usr/local/lib64/libcrypto.so.3", mode=0x102
+        Testing "/usr/local/lib64/libcrypto.so.3", mode=0x102
         dlopen("/usr/local/lib64/libcrypto.so.3",0x102)=0x110b6d0
 
-     Testing "/usr/local/lib64/libssl.so.3[TLS_method]", mode=0x102
+        Testing "/usr/local/lib64/libssl.so.3[TLS_method]", mode=0x102
         dlopen("/usr/local/lib64/libssl.so.3",0x102)=0x110cb60
         dlsym(0x110cb60,"TLS_method")=0x7fda86b8b4e0
+
+  usage sample on AIX:
+    ./dltest -global -now \
+        'libiconv.a(shr4_64.o)[iconv_open,iconv_close]' \
+        /usr/local/lib64/libcrypto.so.3 \
+        /usr/local/lib64/libssl.so.3[TLS_method]
+
+    output:
+        Testing "libiconv.a(shr4_64.o)[iconv_open,iconv_close]", mode=0x50002
+        dlopen("libiconv.a(shr4_64.o)",mode=0x50002)=3
+        dlsym(3,"iconv_open")=9001000a01cd248
+        dlsym(3,"iconv_close")=9001000a01cd2d8
+
+        Testing "/usr/local/lib64/libcrypto.so.3", mode=0x50002
+        dlopen("/usr/local/lib64/libcrypto.so.3",mode=0x50002)=4
+
+        Testing "/usr/local/lib64/libssl.so.3[TLS_method]", mode=0x50002
+        dlopen("/usr/local/lib64/libssl.so.3",mode=0x50002)=5
+        dlsym(5,"TLS_method")=9001000a17cde28
 */
 
 #include <errno.h>
@@ -100,6 +121,14 @@ static char *estrdup(const char *p) {
     return q;
 }
 
+#if defined(_AIX)
+typedef struct FunEnv {
+    void *code;
+    void *toc;
+    void *env;
+} FunEnv;
+#endif
+
 static void Test1 (const char *plibname)
 {
     char *libname = estrdup (plibname);
@@ -125,7 +154,7 @@ static void Test1 (const char *plibname)
     rtldMode |= RTLD_MEMBER;
 #endif
 
-    fprintf (stderr, "\ntesting %s, mode=0x%x\n", plibname, rtldMode);
+    fprintf (stderr, "\nTesting \"%s\", mode=0x%x\n", plibname, rtldMode);
 
     symlist= strchr (libname, '[');
     if (symlist) {
@@ -144,12 +173,12 @@ static void Test1 (const char *plibname)
     if (handle==NULL) {
         int ern= errno;
 
-        fprintf (stderr, "\tdlopen(%s) failed errno=%d (%s)\n",
-                 libname, ern, dlerror ());
+        fprintf (stderr, "\tdlopen(\"%s\",mode=0x%x) failed errno=%d dlerror=\"%s\"\n",
+                 libname, rtldMode, ern, dlerror ());
         return;
     }
 
-    fprintf (stderr, "\tdlopen(%s)=%p\n", libname, handle);
+    fprintf (stderr, "\tdlopen(\"%s\",mode=0x%x)=%p\n", libname, rtldMode, handle);
     if (!handle) goto RETURN;
 
     if (symlist) {
@@ -165,13 +194,23 @@ static void Test1 (const char *plibname)
             }
             fun = (void (*)(void)) (intptr_t) dlsym (handle, pelem);
             if (fun==NULL) {
-                fprintf (stderr, "\tdlsym(%p,\"%s\") failed errno=%d (%s)\n",
+                fprintf (stderr, "\tdlsym(%p,\"%s\") failed errno=%d (%s)",
                     handle, pelem, errno, dlerror ());
 
             } else {
-                fprintf (stderr, "\tdlsym(%p,\"%s\")=%p\n",
+                fprintf (stderr, "\tdlsym(%p,\"%s\")=%p",
                     handle, pelem, (void *)(intptr_t)fun);
+#if defined(_AIX)
+                {
+                    const FunEnv *fe= (FunEnv *)fun;
+
+                    fprintf (stderr, "\t\tcode=%p toc=%p",
+                             fe->code, fe->toc);
+                }
+#endif
+
             }
+            fputc('\n', stderr);
         }
     }
 
