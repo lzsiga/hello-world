@@ -16,28 +16,29 @@
    usage sample:
      ./dltest -global -now \
           libm.so.6[asin,acos,atan2] \
-          /usr/local/lib64/libcrypto.so.6 \
-          /usr/local/lib64/libssl.so.6[TLS_method]
+          /usr/local/lib64/libcrypto.so.3 \
+          /usr/local/lib64/libssl.so.3[TLS_method]
 
    output:
      Testing "libm.so.6[asin,acos,atan2]", mode=0x102
         dlopen("libm.so.6",0x102)=0x110b060
-        dlsym(0x110b060,asin)=0x7fda86170a80
-        dlsym(0x110b060,acos)=0x7fda86170a10
-        dlsym(0x110b060,atan2)=0x7fda86170ac0
+        dlsym(0x110b060,"asin")=0x7fda86170a80
+        dlsym(0x110b060,"acos")=0x7fda86170a10
+        dlsym(0x110b060,"atan2")=0x7fda86170ac0
 
      Testing "/usr/local/lib64/libcrypto.so.3", mode=0x102
         dlopen("/usr/local/lib64/libcrypto.so.3",0x102)=0x110b6d0
 
      Testing "/usr/local/lib64/libssl.so.3[TLS_method]", mode=0x102
         dlopen("/usr/local/lib64/libssl.so.3",0x102)=0x110cb60
-        dlsym(0x110cb60,TLS_method)=0x7fda86b8b4e0
+        dlsym(0x110cb60,"TLS_method")=0x7fda86b8b4e0
 */
 
 #include <errno.h>
+#include <ctype.h>
 #include <dlfcn.h>
-#include <inttypes.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -57,11 +58,6 @@ static struct {
 static void ParseArgs (int *pargc, char ***pargv);
 
 static void Test1 (const char *plibname);
-
-typedef struct Data {
-    char *ptr;
-    size_t len;
-} Data;
 
 int main (int argc, char **argv)
 {
@@ -110,43 +106,41 @@ static void Test1 (const char *plibname)
     const char *dllib;
     void *handle;
     void (*fun)(void);
-    BuffData elist = EmptyBuffData;
     char *symlist;
-    int MY_RTLD;
-    int rc;
+    int rtldMode;
 
-    MY_RTLD = 0;
+    rtldMode = 0;
 
-    if (opt.lazy) MY_RTLD |= RTLD_LAZY;
-    else          MY_RTLD |= RTLD_NOW;
+    if (opt.lazy) rtldMode |= RTLD_LAZY;
+    else          rtldMode |= RTLD_NOW;
 
-    if (opt.local) MY_RTLD |= RTLD_LOCAL;
-    else           MY_RTLD |= RTLD_GLOBAL;
+    if (opt.local) rtldMode |= RTLD_LOCAL;
+    else           rtldMode |= RTLD_GLOBAL;
 
 #ifdef RTLD_NOLOAD
-    if (opt.noload) MY_RTLD |= RTLD_NOLOAD;
+    if (opt.noload) rtldMode |= RTLD_NOLOAD;
 #endif
 
 #ifdef RTLD_MEMBER
-    MY_RTLD |= RTLD_MEMBER;
+    rtldMode |= RTLD_MEMBER;
 #endif
 
-    fprintf (stderr, "\ntesting %s, mode=0x%x\n", plibname, MY_RTLD);
+    fprintf (stderr, "\ntesting %s, mode=0x%x\n", plibname, rtldMode);
 
     symlist= strchr (libname, '[');
     if (symlist) {
-        *symlist = '\0';
-        elist.ptr= symlist+1;
-        elist.len= strlen (elist.ptr);
-        if (elist.len>0 && elist.ptr[elist.len-1]==']') {
-            elist.ptr[--elist.len]= '\0';
-        }
+        *symlist++ = '\0';
+        size_t slen= strlen(symlist);
+        while (slen>0 && isspace(symlist[slen-1])) --slen;
+        if (slen>0 && symlist[slen-1]==']') --slen;
+        symlist[slen]= '\0';
+        if (slen==0) symlist= NULL;
     }
 
     if (strcasecmp (libname, "NULL")==0) dllib= NULL;
     else                                 dllib= libname;
 
-    handle = dlopen (dllib, MY_RTLD);
+    handle = dlopen (dllib, rtldMode);
     if (handle==NULL) {
         int ern= errno;
 
@@ -158,17 +152,26 @@ static void Test1 (const char *plibname)
     fprintf (stderr, "\tdlopen(%s)=%p\n", libname, handle);
     if (!handle) goto RETURN;
 
-    pp.Text = elist;
-    while ((rc= PLEX (&pp))==0) {
-        ConstBuffData runopt;
+    if (symlist) {
+        char *pnext= symlist;
+        while (pnext) {
+            char *pelem= pnext;
+            char *pcomma= strchr(pnext, ',');
+            if (pcomma) {
+                pnext= pcomma+1;
+                *pcomma= '\0';
+            } else {
+                pnext= NULL;
+            }
+            fun = (void (*)(void)) (intptr_t) dlsym (handle, pelem);
+            if (fun==NULL) {
+                fprintf (stderr, "\tdlsym(%p,\"%s\") failed errno=%d (%s)\n",
+                    handle, pelem, errno, dlerror ());
 
-        fun =  (void (*)(void)) (intptr_t) dlsym (handle, pp.Item.ptr);
-        if (fun==NULL) {
-            fprintf (stderr, "\tdlsym(%p,%s) failed errno=%d (%s)\n",
-                handle, pp.Item.ptr, errno, dlerror ());
-
-        } else {
-            fprintf (stderr, "\tdlsym(%p,%s)=%p\n", handle, pp.Item.ptr, (void *)(intptr_t)fun);
+            } else {
+                fprintf (stderr, "\tdlsym(%p,\"%s\")=%p\n",
+                    handle, pelem, (void *)(intptr_t)fun);
+            }
         }
     }
 
