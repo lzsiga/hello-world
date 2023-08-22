@@ -49,7 +49,7 @@ static Exp *NaiveParser(const char *from);
 
 static void NaiveParsTest(const char *from);
 
-int main (void) {
+static void DefaultTests(void) {
 static const char Test_01[] = "10.4 -2- 3-(4 - 5)-6";
 static const char Test_10[] = "123";
 static const char Test_11[] = "123 / 3";
@@ -80,6 +80,18 @@ static const char Test_30[] = "2^3^4";          /* NB pow is right associative, 
     NaiveParsTest(Test_22);
     NaiveParsTest(Test_23);
     NaiveParsTest(Test_30);
+}
+
+int main (int argc, char **argv) {
+   if (argc==1) {
+       DefaultTests();
+   } else {
+       int i;
+       for (i=1; i<argc; ++i) {
+           NaiveParsTest(argv[i]);
+       }
+       return 0;
+    }
     return 0;
 }
 
@@ -90,11 +102,13 @@ static void NaiveParsTest(const char *from) {
     e= NaiveParser(from);
     printf("Result: ");
     if (e==NULL) {
-        printf("NULL");
+        printf("NULL\n");
     } else {
         Exp_Print(e, stdout);
+        fputc('\n', stdout);
+        fprintf(stdout, "Result: %g\n", Exp_Eval(e));
+        Exp_Delete(e);
     }
-    fputc('\n', stdout);
 }
 
 typedef struct ParseData {
