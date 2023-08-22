@@ -533,6 +533,11 @@ def executeCommand(ps, cmdline):
             print('You cannot swim here!')
         return
 
+    if cmd=='SAVE':
+        import json
+        json.dumps(ps.__dict__)
+        return
+
     print(Messages['UnknownCommand'])
 
 '''

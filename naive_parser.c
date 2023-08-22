@@ -64,6 +64,7 @@ static const char Test_21[] = "(1-(3))*((4)/7)";
 static const char Test_22[] = "(1";             /* syntax error */
 static const char Test_23[] = "1+(2+(3";        /* syntax error */
 static const char Test_30[] = "2^3^4";          /* NB pow is right associative, so (2^(3^4)) is the right answer */
+static const char Test_31[] = "(2*3)^(3+1)";
 
     ExpTest();
     LexTest(Test_01);
@@ -80,6 +81,7 @@ static const char Test_30[] = "2^3^4";          /* NB pow is right associative, 
     NaiveParsTest(Test_22);
     NaiveParsTest(Test_23);
     NaiveParsTest(Test_30);
+    NaiveParsTest(Test_31);
 }
 
 int main (int argc, char **argv) {
@@ -100,13 +102,13 @@ static void NaiveParsTest(const char *from) {
 
     printf("NaiveParsTest: input=\"%s\"\n", from);
     e= NaiveParser(from);
-    printf("Result: ");
+    printf("ResultExp: ");
     if (e==NULL) {
         printf("NULL\n");
     } else {
         Exp_Print(e, stdout);
         fputc('\n', stdout);
-        fprintf(stdout, "Result: %g\n", Exp_Eval(e));
+        fprintf(stdout, "ResultValue: %g\n", Exp_Eval(e));
         Exp_Delete(e);
     }
 }
@@ -116,28 +118,70 @@ typedef struct ParseData {
     LexToken token; /* we keep reading ahead one token */
 } ParseData;
 
-static Exp *NP_Root(ParseData *p);
-static Exp *NP_Add(ParseData *p);
-static Exp *NP_Mul(ParseData *p);
-static Exp *NP_Pow(ParseData *p);
-/* naive grammar:
+typedef struct TaggedExp {
+    Exp *exp;
+    int cls; /* CL_xxx */
+} TaggedExp;
+
+#define Empty_TaggedExp {(Exp *)0, 0};
+
+static void NP_Root(ParseData *p, TaggedExp *retp);
+static void NP_Add(ParseData *p, TaggedExp *retp);
+static void NP_Mul(ParseData *p, TaggedExp *retp);
+static void NP_Pow(ParseData *p, TaggedExp *retp);
+
+/* naive top-down parsing doesn't support left-recursion,
+   so the modified grammar is this:
+
    start -> add
-   add   -> mul    | mul    '+' add | mul   '-' add
-   mul   -> pow    | pow    '*' mul | pow   '/' mul
-   pow   -> NUMBER | NUMBER '^' pow
-   pow   -> '(' add ')'
+   add   -> mul    | mul  '+' add | mul '-' add
+   mul   -> pow    | pow  '*' mul | pow '/' mul
+   pow   -> elem   | elem '^' pow
+   elem  -> NUMBER | '(' add ')'
+
+   problem with the grammar:
+   2-3-4-5 parsed as 2-(3-(4-5)), it should be ((2-3)-4)-5
+
+   solution:
+   - the parsing function return a 'class' value too (TaggedExp)
+     see CL_xxx values
+
+   - the class value depends on the rule:
+
+      add  ->  mul                    class[result] := class[left]
+             | mul '+' add            class[result] := CL_ADD
+             | mul '-' add            class[result] := CL_ADD
+      mul  ->  pow                    class[result] := class[left]
+             | pow '*' mul            class[result] := CL_MUL
+             | pow '/' mul            class[result] := CL_MUL
+      pow  ->  elem                   class[result] := class[left]
+             | elem '^' pow           class[result] := CL_POW
+      elem ->  NUMBER | '(' add ')'   class[result] := CL_OTHER
+
+   - within some rules expressions are to be reorganized:
+
+      add  ->  mul '+' add     reorg if class[right]==CL_ADD
+             | mul '-' add     reorg if class[right]==CL_ADD
+      mul  ->  pow '*' mul     reorg if class[right]==CL_MUL
+             | pow '/' mul     reorg if class[right]==CL_MUL
+      pow  ->  elem '^' pow    no reorg, pow is right-associative
+
  */
+#define CL_OTHER  0  /* not class for now */
+#define CL_ADD 1000  /* + - */
+#define CL_MUL 1010  /* * / */
+#define CL_POW 1020  /* * / */
 
 static Exp *NaiveParser(const char *from) {
     ParseData p;
-    Exp *e;
+    TaggedExp e= Empty_TaggedExp;
 
     memset (&p, 0, sizeof p);
     p.ld= LexInit(from);
     LexGet (p.ld, &p.token);
-    e= NP_Root(&p);
+    NP_Root(&p, &e);
     LexTerm(p.ld);
-    return e;
+    return e.exp;
 }
 
 static void NP_PrintErr(ParseData *p) {
@@ -153,121 +197,147 @@ static void NP_PrintErrF(ParseData *p, char *fmt, ...) {
     LexToken_DebugPrint(&p->token, stderr);
 }
 
-static Exp *NP_Root(ParseData *p) {
-    Exp *e= NP_Add(p);
+static void NP_Root(ParseData *p, TaggedExp *retp) {
+    TaggedExp e= Empty_TaggedExp;
+
+    NP_Add(p, &e);
     if (p->token.type != LT_EOF) {
         NP_PrintErr(p);
     }
-    return e;
+    *retp= e;
 }
 
-static Exp *NP_Pow(ParseData *p) {
-    Exp *left= NULL;
+#define NP_Return(te) {\
+    *retp= (te); \
+    return; \
+}
+
+static void NP_Pow(ParseData *p, TaggedExp *retp) {
+    TaggedExp left=  Empty_TaggedExp;
+    TaggedExp right= Empty_TaggedExp;
+    TaggedExp empty= Empty_TaggedExp;
 
     if (p->token.type==LT_EOF) {
-        return NULL;
+        NP_Return(empty);
+        return;
 
     } else if (p->token.type==LT_NUM) {
-        left= Exp_NewNum (p->token.value);
+        left.exp= Exp_NewNum (p->token.value);
+        left.cls= CL_OTHER;
 
         LexGet (p->ld, &p->token);
 
     } else if (p->token.type=='(') {
-        Exp *nested;
-
         LexGet (p->ld, &p->token);
-        nested= NP_Add(p);
-        if (nested!=NULL) {
+        NP_Add(p, &left);
+        if (left.exp!=NULL) {
             if (p->token.type==')') {
-                LexGet (p->ld, &p->token);
+                LexGet(p->ld, &p->token);
             } else {
                 NP_PrintErrF(p, "*** Missing right parentheses near ");
-                nested= NULL;   /* if we removed this line, Test_22 and Test_23 would work */
+                Exp_Delete(left.exp);
+                left.exp= NULL;
             }
+            left.cls= CL_OTHER;
         }
-        if (nested==NULL) return NULL;
-        left= nested;
+        if (left.exp==NULL) NP_Return(empty);
 
     } else {
         NP_PrintErr(p);
-        return NULL;
+        NP_Return(empty);
     }
 
     if (p->token.type=='^') {
         int op= p->token.type;
-        Exp *right;
 
-        LexGet (p->ld, &p->token);
-        right= NP_Pow(p);
-        if (right==NULL) {
-            return NULL;
+        LexGet(p->ld, &p->token);
+        NP_Pow(p, &right);
+        if (right.exp==NULL) {
+            Exp_Delete(left.exp);
+            NP_Return(empty);
+            return;
+
         } else {
-            return Exp_New(op, left, right);
+            TaggedExp newt= Empty_TaggedExp;
+            newt.exp= Exp_New(op, left.exp, right.exp);
+            newt.cls= CL_POW;
+            NP_Return(newt);
         }
+
     } else {
-        return left;
+        NP_Return(left);
     }
 }
 
-static Exp *NP_Mul(ParseData *p) {
-    Exp *left= NULL;
+static void NP_Mul(ParseData *p, TaggedExp *retp) {
+    TaggedExp left=  Empty_TaggedExp;
+    TaggedExp right= Empty_TaggedExp;
+    TaggedExp empty= Empty_TaggedExp;
 
     if (p->token.type==LT_EOF) {
-        return NULL;
+        NP_Return(empty);
 
     } else if (p->token.type==LT_NUM || p->token.type=='(') {
-        left= NP_Pow (p);
-        if (left==NULL) return NULL;
+        NP_Pow(p, &left);
+        if (left.exp==NULL) NP_Return(empty);
 
     } else {
         NP_PrintErr(p);
-        return NULL;
+        NP_Return(empty);
     }
 
     if (p->token.type=='*' || p->token.type=='/') {
         int op= p->token.type;
-        Exp *right;
 
-        LexGet (p->ld, &p->token);
-        right= NP_Mul(p);
-        if (right==NULL) {
-            return NULL;
+        LexGet(p->ld, &p->token);
+        NP_Mul(p, &right);
+        if (right.exp==NULL) {
+            Exp_Delete(left.exp);
+            NP_Return(empty);
         } else {
-            return Exp_New(op, left, right);
+            TaggedExp newt= Empty_TaggedExp;
+            newt.exp= Exp_New(op, left.exp, right.exp);
+            newt.cls= CL_MUL;
+            NP_Return(newt);
         }
     } else {
-        return left;
+        NP_Return(left);
     }
 }
 
-static Exp *NP_Add(ParseData *p) {
-    Exp *left= NULL;
+static void NP_Add(ParseData *p, TaggedExp *retp) {
+    TaggedExp left=  Empty_TaggedExp;
+    TaggedExp right= Empty_TaggedExp;
+    TaggedExp empty= Empty_TaggedExp;
 
     if (p->token.type==LT_EOF) {
-        return NULL;
+        NP_Return(empty);
 
     } else if (p->token.type==LT_NUM || p->token.type=='(') {
-        left= NP_Mul (p);
-        if (left==NULL) return NULL;
+        NP_Mul(p, &left);
+        if (left.exp==NULL) NP_Return(empty);
     } else {
         NP_PrintErr(p);
-        return NULL;
+        NP_Return(empty);
     }
 
     if (p->token.type=='+' || p->token.type=='-') {
         int op= p->token.type;
-        Exp *right;
 
-        LexGet (p->ld, &p->token);
-        right= NP_Add(p);
-        if (right==NULL) {
-            return NULL;
+        LexGet(p->ld, &p->token);
+        NP_Add(p, &right);
+        if (right.exp==NULL) {
+            Exp_Delete(left.exp);
+            NP_Return(empty);
         } else {
-            return Exp_New(op, left, right);
+            TaggedExp newt= Empty_TaggedExp;
+            newt.exp= Exp_New(op, left.exp, right.exp);
+            newt.cls= CL_ADD;
+            NP_Return(newt);
         }
 
     } else {
-        return left;
+        NP_Return(left);
     }
 }
 
@@ -429,7 +499,8 @@ static void Exp_Print(const Exp *e, FILE *to) {
        exit (12);
 
     } else if (e->type=='N') {
-        fprintf(to, "%g", e->value);
+        if (e->value<0) fprintf(to, "(%g)", e->value);
+        else            fprintf(to, "%g",   e->value);
 
     } else if (e->type=='+' || e->type=='-'|| e->type=='*' || e->type=='/' || e->type=='^') {
         fputc('(', to);
