@@ -1,6 +1,7 @@
 /* naive_parser.c */
 
 #include <ctype.h>
+#include <math.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -53,11 +54,16 @@ static const char Test_01[] = "10.4 -2- 3-(4 - 5)-6";
 static const char Test_10[] = "123";
 static const char Test_11[] = "123 / 3";
 static const char Test_12[] = "12 * 5.3 * 8";
-static const char Test_13[] = "96 / 2 / 3 / 4"; /* naive interpretation: (96/(2/(3/4))) */
-static const char Test_14[] = "6 - 7";
-static const char Test_15[] = "1 * 2 - 3 / 4";
+static const char Test_13[] = "96 / 2 / 3 / 4"; /* naive interpretation: (96/(2/(3/4))) -- should be fixed */
+static const char Test_14[] = "((96/2)/3)/4";   /* no problem here */
+static const char Test_15[] = "96/(2/(3/4))";   /* or here */
+static const char Test_16[] = "6 - 7";
+static const char Test_17[] = "1 * 2 - 3 / 4";
 static const char Test_20[] = "(1-3)*(4-7)";
 static const char Test_21[] = "(1-(3))*((4)/7)";
+static const char Test_22[] = "(1";             /* syntax error */
+static const char Test_23[] = "1+(2+(3";        /* syntax error */
+static const char Test_30[] = "2^3^4";          /* NB pow is right associative, so (2^(3^4)) is the right answer */
 
     ExpTest();
     LexTest(Test_01);
@@ -67,8 +73,13 @@ static const char Test_21[] = "(1-(3))*((4)/7)";
     NaiveParsTest(Test_13);
     NaiveParsTest(Test_14);
     NaiveParsTest(Test_15);
+    NaiveParsTest(Test_16);
+    NaiveParsTest(Test_17);
     NaiveParsTest(Test_20);
     NaiveParsTest(Test_21);
+    NaiveParsTest(Test_22);
+    NaiveParsTest(Test_23);
+    NaiveParsTest(Test_30);
     return 0;
 }
 
@@ -94,11 +105,13 @@ typedef struct ParseData {
 static Exp *NP_Root(ParseData *p);
 static Exp *NP_Add(ParseData *p);
 static Exp *NP_Mul(ParseData *p);
+static Exp *NP_Pow(ParseData *p);
 /* naive grammar:
    start -> add
    add   -> mul    | mul    '+' add | mul   '-' add
-   mul   -> NUMBER | NUMBER '*' mul | NUMER '/' mul
-   mul   -> '(' add ')'
+   mul   -> pow    | pow    '*' mul | pow   '/' mul
+   pow   -> NUMBER | NUMBER '^' pow
+   pow   -> '(' add ')'
  */
 
 static Exp *NaiveParser(const char *from) {
@@ -134,7 +147,7 @@ static Exp *NP_Root(ParseData *p) {
     return e;
 }
 
-static Exp *NP_Mul(ParseData *p) {
+static Exp *NP_Pow(ParseData *p) {
     Exp *left= NULL;
 
     if (p->token.type==LT_EOF) {
@@ -154,12 +167,43 @@ static Exp *NP_Mul(ParseData *p) {
             if (p->token.type==')') {
                 LexGet (p->ld, &p->token);
             } else {
-                NP_PrintErrF(p, "*** Missing right parentheses at ");
-                nested= NULL;
+                NP_PrintErrF(p, "*** Missing right parentheses near ");
+                nested= NULL;   /* if we removed this line, Test_22 and Test_23 would work */
             }
         }
         if (nested==NULL) return NULL;
         left= nested;
+
+    } else {
+        NP_PrintErr(p);
+        return NULL;
+    }
+
+    if (p->token.type=='^') {
+        int op= p->token.type;
+        Exp *right;
+
+        LexGet (p->ld, &p->token);
+        right= NP_Pow(p);
+        if (right==NULL) {
+            return NULL;
+        } else {
+            return Exp_New(op, left, right);
+        }
+    } else {
+        return left;
+    }
+}
+
+static Exp *NP_Mul(ParseData *p) {
+    Exp *left= NULL;
+
+    if (p->token.type==LT_EOF) {
+        return NULL;
+
+    } else if (p->token.type==LT_NUM || p->token.type=='(') {
+        left= NP_Pow (p);
+        if (left==NULL) return NULL;
 
     } else {
         NP_PrintErr(p);
@@ -183,32 +227,33 @@ static Exp *NP_Mul(ParseData *p) {
 }
 
 static Exp *NP_Add(ParseData *p) {
+    Exp *left= NULL;
+
     if (p->token.type==LT_EOF) {
         return NULL;
 
     } else if (p->token.type==LT_NUM || p->token.type=='(') {
-        Exp *left= NP_Mul (p);
+        left= NP_Mul (p);
         if (left==NULL) return NULL;
-
-        if (p->token.type=='+' || p->token.type=='-') {
-            int op= p->token.type;
-            Exp *right;
-
-            LexGet (p->ld, &p->token);
-            right= NP_Add(p);
-            if (right==NULL) {
-                return NULL;
-            } else {
-                return Exp_New(op, left, right);
-            }
-
-        } else {
-            return left;
-        }
-
     } else {
         NP_PrintErr(p);
         return NULL;
+    }
+
+    if (p->token.type=='+' || p->token.type=='-') {
+        int op= p->token.type;
+        Exp *right;
+
+        LexGet (p->ld, &p->token);
+        right= NP_Add(p);
+        if (right==NULL) {
+            return NULL;
+        } else {
+            return Exp_New(op, left, right);
+        }
+
+    } else {
+        return left;
     }
 }
 
@@ -354,6 +399,12 @@ static double Exp_Eval(const Exp *e) {
     } else if (e->type=='/') {
         return Exp_Eval(e->left) / Exp_Eval(e->right);
 
+    } else if (e->type=='^') {
+        double l= Exp_Eval(e->left);
+        double r= Exp_Eval(e->right);
+        double res= pow(l,r);
+        return res;
+
     } else {
         exit(13);
     }
@@ -366,7 +417,7 @@ static void Exp_Print(const Exp *e, FILE *to) {
     } else if (e->type=='N') {
         fprintf(to, "%g", e->value);
 
-    } else if (e->type=='+' || e->type=='-'|| e->type=='*' || e->type=='/') {
+    } else if (e->type=='+' || e->type=='-'|| e->type=='*' || e->type=='/' || e->type=='^') {
         fputc('(', to);
         Exp_Print(e->left, to);
         fputc((char)e->type, to);
