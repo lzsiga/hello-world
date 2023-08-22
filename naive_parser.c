@@ -1,7 +1,11 @@
 /* naive_parser.c */
 
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+
+/* expression tree */
 
 typedef struct Exp Exp; /* this type is opaque */
 
@@ -13,9 +17,101 @@ static void Exp_Print(const Exp *e, FILE *to);
 
 static void ExpTest(void);
 
+/* lexical parser */
+
+typedef struct LexData LexData; /* this type is opaque */
+
+typedef struct LexToken {
+    int type;     /* either 0..255 single-byte character) or LT_... */
+    double value; /* if type==LT_NUM */
+} LexToken;
+#define LT_EOF -1  /* END OF STRING */
+#define LT_NUM -2  /* number (actual value in 'value') */
+static void LexToken_DebugPrint(const LexToken *token, FILE *to);
+
+static LexData *LexInit(const char *from);
+static int LexGet(LexData *ld, LexToken *into); /* returns into->type */
+static void LexTerm(LexData *ld);
+
+static void LexTest(void);
+
 int main (void) {
     ExpTest();
+    LexTest();
     return 0;
+}
+
+static LexData *LexInit(const char *from);
+static int LexGet(LexData *ld, LexToken *into); /* returns into->type */
+static void LexTerm(LexData *ld);
+
+static void LexTest(void) {
+    const char str[]= "1 -2- 3-(4 - 5)-6";
+    LexData *ld= LexInit(str);
+    LexToken token;
+
+    printf("LexTest: reading \"%s\" token-wise\n", str);
+    do {
+        LexGet(ld, &token);
+        LexToken_DebugPrint(&token, stdout);
+    } while (token.type != LT_EOF);
+    LexTerm(ld);
+}
+
+static void LexToken_DebugPrint(const LexToken *token, FILE *to) {
+    if      (token->type==LT_EOF) fprintf(to, "token=EOF\n");
+    else if (token->type==LT_NUM) fprintf(to, "token=NUMBER: %g\n", token->value);
+    else                          fprintf(to, "token='%c'\n", (char)token->type);
+}
+
+struct LexData {
+    char *from;
+    char *lim;
+    char *pos;
+    int eof;      /* flag */
+};
+
+static LexData *LexInit(const char *pfrom) {
+    LexData *ld= calloc(1, sizeof *ld);
+    ld->from= strdup(pfrom);
+    ld->pos= ld->from;
+    ld->lim= ld->from + strlen(ld->from);
+    return ld;
+}
+
+static void LexTerm(LexData *ld) {
+    free(ld->from);
+    memset(ld, 0, sizeof *ld);
+    free(ld);
+}
+
+static int LexGet(LexData *ld, LexToken *into) {
+    int c;
+
+    memset(into, 0, sizeof *into);
+    if (ld==NULL) {
+        exit(14);
+    } else if (ld->eof) {
+        return into->type= LT_EOF;
+    }
+    while (ld->pos < ld->lim && isspace((unsigned char)*ld->pos)) {
+        ++ld->pos;
+    }
+    if (ld->pos >= ld->lim) {
+        ld->eof= 1;
+        return into->type= LT_EOF;
+    }
+
+    c= (unsigned char)*ld->pos;
+    if (isdigit(c)) {
+        into->value= strtod(ld->pos, &ld->pos);
+        into->type= LT_NUM;
+
+    } else {
+        into->type= c;
+        ++ld->pos;
+    }
+    return into->type;
 }
 
 static void ExpTest(void) {
