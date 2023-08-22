@@ -1,6 +1,7 @@
 /* naive_parser.c */
 
 #include <ctype.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -52,9 +53,11 @@ static const char Test_01[] = "10.4 -2- 3-(4 - 5)-6";
 static const char Test_10[] = "123";
 static const char Test_11[] = "123 / 3";
 static const char Test_12[] = "12 * 5.3 * 8";
-static const char Test_13[] = "96 / 2 / 3 / 4";
+static const char Test_13[] = "96 / 2 / 3 / 4"; /* naive interpretation: (96/(2/(3/4))) */
 static const char Test_14[] = "6 - 7";
 static const char Test_15[] = "1 * 2 - 3 / 4";
+static const char Test_20[] = "(1-3)*(4-7)";
+static const char Test_21[] = "(1-(3))*((4)/7)";
 
     ExpTest();
     LexTest(Test_01);
@@ -64,6 +67,8 @@ static const char Test_15[] = "1 * 2 - 3 / 4";
     NaiveParsTest(Test_13);
     NaiveParsTest(Test_14);
     NaiveParsTest(Test_15);
+    NaiveParsTest(Test_20);
+    NaiveParsTest(Test_21);
     return 0;
 }
 
@@ -93,6 +98,7 @@ static Exp *NP_Mul(ParseData *p);
    start -> add
    add   -> mul    | mul    '+' add | mul   '-' add
    mul   -> NUMBER | NUMBER '*' mul | NUMER '/' mul
+   mul   -> '(' add ')'
  */
 
 static Exp *NaiveParser(const char *from) {
@@ -112,6 +118,14 @@ static void NP_PrintErr(ParseData *p) {
     LexToken_DebugPrint(&p->token, stderr);
 }
 
+static void NP_PrintErrF(ParseData *p, char *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    vfprintf(stderr, fmt, ap);
+    va_end(ap);
+    LexToken_DebugPrint(&p->token, stderr);
+}
+
 static Exp *NP_Root(ParseData *p) {
     Exp *e= NP_Add(p);
     if (p->token.type != LT_EOF) {
@@ -121,31 +135,50 @@ static Exp *NP_Root(ParseData *p) {
 }
 
 static Exp *NP_Mul(ParseData *p) {
+    Exp *left= NULL;
+
     if (p->token.type==LT_EOF) {
         return NULL;
 
     } else if (p->token.type==LT_NUM) {
-        Exp *left= Exp_NewNum (p->token.value);
+        left= Exp_NewNum (p->token.value);
 
         LexGet (p->ld, &p->token);
-        if (p->token.type=='*' || p->token.type=='/') {
-            int op= p->token.type;
-            Exp *right;
 
-            LexGet (p->ld, &p->token);
-            right= NP_Mul(p);
-            if (right==NULL) {
-                return NULL;
+    } else if (p->token.type=='(') {
+        Exp *nested;
+
+        LexGet (p->ld, &p->token);
+        nested= NP_Add(p);
+        if (nested!=NULL) {
+            if (p->token.type==')') {
+                LexGet (p->ld, &p->token);
             } else {
-                return Exp_New(op, left, right);
+                NP_PrintErrF(p, "*** Missing right parentheses at ");
+                nested= NULL;
             }
-        } else {
-            return left;
         }
+        if (nested==NULL) return NULL;
+        left= nested;
 
     } else {
         NP_PrintErr(p);
         return NULL;
+    }
+
+    if (p->token.type=='*' || p->token.type=='/') {
+        int op= p->token.type;
+        Exp *right;
+
+        LexGet (p->ld, &p->token);
+        right= NP_Mul(p);
+        if (right==NULL) {
+            return NULL;
+        } else {
+            return Exp_New(op, left, right);
+        }
+    } else {
+        return left;
     }
 }
 
@@ -153,7 +186,7 @@ static Exp *NP_Add(ParseData *p) {
     if (p->token.type==LT_EOF) {
         return NULL;
 
-    } else if (p->token.type==LT_NUM) {
+    } else if (p->token.type==LT_NUM || p->token.type=='(') {
         Exp *left= NP_Mul (p);
         if (left==NULL) return NULL;
 
