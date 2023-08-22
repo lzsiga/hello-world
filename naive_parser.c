@@ -21,9 +21,15 @@ static void ExpTest(void);
 
 typedef struct LexData LexData; /* this type is opaque */
 
+typedef struct LexPos {
+    int line;     /* line:   1.. */
+    int offset;   /* offset: 0.. */
+} LexPos;
+
 typedef struct LexToken {
     int type;     /* either 0..255 single-byte character) or LT_... */
     double value; /* if type==LT_NUM */
+    LexPos pos;   /* parsing position */
 } LexToken;
 #define LT_EOF -1  /* END OF STRING */
 #define LT_NUM -2  /* number (actual value in 'value') */
@@ -33,24 +39,80 @@ static LexData *LexInit(const char *from);
 static int LexGet(LexData *ld, LexToken *into); /* returns into->type */
 static void LexTerm(LexData *ld);
 
-static void LexTest(void);
+static void LexTest(const char *from);
+
+/* naive parser */
+
+static Exp *NaiveParser(const char *from);
+
+static void NaiveParsTest(const char *from);
 
 int main (void) {
+static const char Test_01[] = "10.4 -2- 3-(4 - 5)-6";
+static const char Test_10[] = "123";
+
     ExpTest();
-    LexTest();
+    LexTest(Test_01);
+    NaiveParsTest(Test_10);
     return 0;
 }
 
-static LexData *LexInit(const char *from);
-static int LexGet(LexData *ld, LexToken *into); /* returns into->type */
-static void LexTerm(LexData *ld);
+static void NaiveParsTest(const char *from) {
+    Exp *e;
 
-static void LexTest(void) {
-    const char str[]= "1 -2- 3-(4 - 5)-6";
-    LexData *ld= LexInit(str);
+    printf("NaiveParsTest: input=\"%s\"\n", from);
+    e= NaiveParser(from);
+    printf("Result: ");
+    if (e==NULL) {
+        printf("NULL");
+    } else {
+        Exp_Print(e, stdout);
+    }
+    fputc('\n', stdout);
+}
+
+typedef struct ParseData {
+    LexData *ld;
+    LexToken token; /* we keep read ahead one token */
+} ParseData;
+
+static Exp *NP_Root(ParseData *p);
+
+static Exp *NaiveParser(const char *from) {
+    ParseData p;
+    Exp *e;
+
+    memset (&p, 0, sizeof p);
+    p.ld= LexInit(from);
+    LexGet (p.ld, &p.token);
+    e= NP_Root(&p);
+    LexTerm(p.ld);
+    return e;
+}
+
+static void NP_PrintErr(ParseData *p) {
+    fprintf(stderr, "*** failed at ");
+    LexToken_DebugPrint(&p->token, stderr);
+}
+
+static Exp *NP_Root(ParseData *p) {
+    if (p->token.type==LT_EOF) {
+        return NULL;
+
+    } else if (p->token.type==LT_NUM) {
+        return Exp_NewNum (p->token.value);
+
+    } else {
+        NP_PrintErr(p);
+        return NULL;
+    }
+}
+
+static void LexTest(const char *from) {
+    LexData *ld= LexInit(from);
     LexToken token;
 
-    printf("LexTest: reading \"%s\" token-wise\n", str);
+    printf("LexTest: reading \"%s\" token-wise\n", from);
     do {
         LexGet(ld, &token);
         LexToken_DebugPrint(&token, stdout);
@@ -59,23 +121,27 @@ static void LexTest(void) {
 }
 
 static void LexToken_DebugPrint(const LexToken *token, FILE *to) {
-    if      (token->type==LT_EOF) fprintf(to, "token=EOF\n");
-    else if (token->type==LT_NUM) fprintf(to, "token=NUMBER: %g\n", token->value);
-    else                          fprintf(to, "token='%c'\n", (char)token->type);
+    fprintf(to, "token at %d:%d ", token->pos.line, token->pos.offset);
+    if      (token->type==LT_EOF) fprintf(to, "EOF\n");
+    else if (token->type==LT_NUM) fprintf(to, "NUMBER: %g\n", token->value);
+    else                          fprintf(to, "'%c'\n", (char)token->type);
 }
 
 struct LexData {
     char *from;
     char *lim;
-    char *pos;
+    char *ptr;    /* parsing position as pointer */
+    LexPos pos;   /* parsing position as line+offset */
     int eof;      /* flag */
 };
 
 static LexData *LexInit(const char *pfrom) {
     LexData *ld= calloc(1, sizeof *ld);
     ld->from= strdup(pfrom);
-    ld->pos= ld->from;
+    ld->ptr= ld->from;
     ld->lim= ld->from + strlen(ld->from);
+    ld->pos.line= 1;
+    ld->pos.offset= 0;
     return ld;
 }
 
@@ -91,25 +157,41 @@ static int LexGet(LexData *ld, LexToken *into) {
     memset(into, 0, sizeof *into);
     if (ld==NULL) {
         exit(14);
+
     } else if (ld->eof) {
-        return into->type= LT_EOF;
+        into->type= LT_EOF;
+        into->pos= ld->pos;
+        return into->type;
     }
-    while (ld->pos < ld->lim && isspace((unsigned char)*ld->pos)) {
-        ++ld->pos;
-    }
-    if (ld->pos >= ld->lim) {
-        ld->eof= 1;
-        return into->type= LT_EOF;
+    while (ld->ptr < ld->lim && isspace(c= (unsigned char)*ld->ptr)) {
+        ++ld->ptr;
+        if (c=='\n') {
+            ++ld->pos.line;
+            ld->pos.offset= 0;
+        } else {
+            ++ld->pos.offset;
+        }
     }
 
-    c= (unsigned char)*ld->pos;
+    into->pos= ld->pos;
+    if (ld->ptr >= ld->lim) {
+        ld->eof= 1;
+        into->type= LT_EOF;
+        return into->type;
+    }
+
+    c= (unsigned char)*ld->ptr;
     if (isdigit(c)) {
-        into->value= strtod(ld->pos, &ld->pos);
+        char *endptr= NULL;
+        into->value= strtod(ld->ptr, &endptr);
         into->type= LT_NUM;
+        ld->pos.offset += (endptr - ld->ptr);
+        ld->ptr= endptr;
 
     } else {
         into->type= c;
-        ++ld->pos;
+        ++ld->ptr;
+        ++ld->pos.offset;
     }
     return into->type;
 }
