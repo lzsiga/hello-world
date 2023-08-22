@@ -50,10 +50,20 @@ static void NaiveParsTest(const char *from);
 int main (void) {
 static const char Test_01[] = "10.4 -2- 3-(4 - 5)-6";
 static const char Test_10[] = "123";
+static const char Test_11[] = "123 / 3";
+static const char Test_12[] = "12 * 5.3 * 8";
+static const char Test_13[] = "96 / 2 / 3 / 4";
+static const char Test_14[] = "6 - 7";
+static const char Test_15[] = "1 * 2 - 3 / 4";
 
     ExpTest();
     LexTest(Test_01);
     NaiveParsTest(Test_10);
+    NaiveParsTest(Test_11);
+    NaiveParsTest(Test_12);
+    NaiveParsTest(Test_13);
+    NaiveParsTest(Test_14);
+    NaiveParsTest(Test_15);
     return 0;
 }
 
@@ -73,10 +83,17 @@ static void NaiveParsTest(const char *from) {
 
 typedef struct ParseData {
     LexData *ld;
-    LexToken token; /* we keep read ahead one token */
+    LexToken token; /* we keep reading ahead one token */
 } ParseData;
 
 static Exp *NP_Root(ParseData *p);
+static Exp *NP_Add(ParseData *p);
+static Exp *NP_Mul(ParseData *p);
+/* naive grammar:
+   start -> add
+   add   -> mul    | mul    '+' add | mul   '-' add
+   mul   -> NUMBER | NUMBER '*' mul | NUMER '/' mul
+ */
 
 static Exp *NaiveParser(const char *from) {
     ParseData p;
@@ -96,11 +113,65 @@ static void NP_PrintErr(ParseData *p) {
 }
 
 static Exp *NP_Root(ParseData *p) {
+    Exp *e= NP_Add(p);
+    if (p->token.type != LT_EOF) {
+        NP_PrintErr(p);
+    }
+    return e;
+}
+
+static Exp *NP_Mul(ParseData *p) {
     if (p->token.type==LT_EOF) {
         return NULL;
 
     } else if (p->token.type==LT_NUM) {
-        return Exp_NewNum (p->token.value);
+        Exp *left= Exp_NewNum (p->token.value);
+
+        LexGet (p->ld, &p->token);
+        if (p->token.type=='*' || p->token.type=='/') {
+            int op= p->token.type;
+            Exp *right;
+
+            LexGet (p->ld, &p->token);
+            right= NP_Mul(p);
+            if (right==NULL) {
+                return NULL;
+            } else {
+                return Exp_New(op, left, right);
+            }
+        } else {
+            return left;
+        }
+
+    } else {
+        NP_PrintErr(p);
+        return NULL;
+    }
+}
+
+static Exp *NP_Add(ParseData *p) {
+    if (p->token.type==LT_EOF) {
+        return NULL;
+
+    } else if (p->token.type==LT_NUM) {
+        Exp *left= NP_Mul (p);
+        if (left==NULL) return NULL;
+
+        if (p->token.type=='+' || p->token.type=='-') {
+            int op= p->token.type;
+            Exp *right;
+
+            LexGet (p->ld, &p->token);
+            right= NP_Add(p);
+            if (right==NULL) {
+                return NULL;
+            } else {
+                return Exp_New(op, left, right);
+            }
+
+        } else {
+            return left;
+        }
 
     } else {
         NP_PrintErr(p);
