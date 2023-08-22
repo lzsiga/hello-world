@@ -3,12 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-typedef struct Exp {
-    char type;         /* 'N', '+', '-', '*', '/' = number(leaf), add/sub/mul/div */
-    double value;      /* used only if leaf */
-    struct Exp *left;  /* must be null if leaf */
-    struct Exp *right; /* must be null if leaf */
-} Exp;
+typedef struct Exp Exp; /* this type is opaque */
 
 static Exp *Exp_NewNum(double pvalue);
 static Exp *Exp_New(char ptype, Exp *pleft, Exp *pright);
@@ -35,6 +30,13 @@ static void ExpTest(void) {
 
     Exp_Delete(e);
 }
+
+struct Exp {
+    char type;         /* 'N', '+', '-', '*', '/' = number(leaf), add/sub/mul/div */
+    double value;      /* used only if leaf */
+    struct Exp *left;  /* must be null if leaf */
+    struct Exp *right; /* must be null if leaf */
+};
 
 static Exp *Exp_NewNum(double pvalue) {
     Exp *e= calloc(1, sizeof *e);
@@ -100,4 +102,3 @@ static void Exp_Delete(Exp *e) {
     Exp_Delete(e->right);
     free(e);
 }
-
