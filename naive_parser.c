@@ -68,7 +68,7 @@ static const char Test_01[] = "10.4 -2- 3-(4 - 5)-6";
 static const char Test_10[] = "123";
 static const char Test_11[] = "123 / 3";
 static const char Test_12[] = "12 * 5.3 * 8";
-static const char Test_13[] = "96 / 2 / 3 / 4"; /* naive interpretation: (96/(2/(3/4))) -- should be fixed */
+static const char Test_13[] = "96 / 2 / 3 / 4"; /* NB bad (96/(2/(3/4))); good: (((92/2)/3)/4 */
 static const char Test_14[] = "((96/2)/3)/4";   /* no problem here */
 static const char Test_15[] = "96/(2/(3/4))";   /* or here */
 static const char Test_16[] = "6 - 7";
@@ -233,73 +233,19 @@ static Exp *NP_Pow(ParseData *p) {
     }
 }
 
-/* NP_Mul and NP_Add are almost identical,
-   they should be wrappers calling a common implementation
- */
+typedef Exp *NP_LeftOp(ParseData *p);
 
-static Exp *NP_Mul(ParseData *p) {
-    Exp *first= NULL;
-    Stack *stk= NULL;
-    ParsTempElem pte;
-    int err= 0;
+Exp *NP_LeftCommon(ParseData *p, const char *symbols, NP_LeftOp *childfun);
 
-    if (p->token.type==LT_EOF) {
-        return NULL;
-
-    } else if (p->token.type==LT_NUM || p->token.type=='(') {
-        first= NP_Pow (p);
-        if (first==NULL) return NULL;
-
-    } else {
-        NP_PrintErr(p);
-        return NULL;
-    }
-
-    stk= Stk_New (sizeof (ParsTempElem));
-    pte.op= 0;
-    pte.exp= first;
-    Stk_Add(stk, &pte);
-
-    while (err==0 && (p->token.type=='*' || p->token.type=='/')) {
-        int op= p->token.type;
-        Exp *next;
-
-        LexGet (p->ld, &p->token);
-        next= NP_Pow(p);
-        if (next==NULL) {
-            err= 1;
-            continue;
-        }
-        pte.op= op;
-        pte.exp= next;
-        Stk_Add(stk, &pte);
-    }
-
-    if (err) {
-        int i, n= Stk_Count(stk);
-        for (i= 0; i<n; ++i) {
-            Stk_Get(stk, &pte, i);
-            Exp_Delete(pte.exp);
-        }
-        return NULL;
-    } else {
-        int i, n= Stk_Count(stk);
-        Exp *e= NULL;
-
-        if (n>0) {
-            Stk_Get(stk, &pte, 0);
-            e= pte.exp;
-
-            for (i=1; i<n; ++i) {
-                Stk_Get(stk, &pte, i);
-                e= Exp_New(pte.op, e, pte.exp);
-            }
-        }
-        return e;
-    }
+Exp *NP_Add(ParseData *p) {
+    return NP_LeftCommon(p, "+-", NP_Mul);
 }
 
-static Exp *NP_Add(ParseData *p) {
+Exp *NP_Mul(ParseData *p) {
+    return NP_LeftCommon(p, "*/", NP_Pow);
+}
+
+Exp *NP_LeftCommon(ParseData *p, const char *symbols, NP_LeftOp *childfun) {
     Exp *first= NULL;
     Stack *stk= NULL;
     ParsTempElem pte;
@@ -309,8 +255,9 @@ static Exp *NP_Add(ParseData *p) {
         return NULL;
 
     } else if (p->token.type==LT_NUM || p->token.type=='(') {
-        first= NP_Mul (p);
+        first= (*childfun)(p);
         if (first==NULL) return NULL;
+
     } else {
         NP_PrintErr(p);
         return NULL;
@@ -321,13 +268,12 @@ static Exp *NP_Add(ParseData *p) {
     pte.exp= first;
     Stk_Add(stk, &pte);
 
-    while (err==0 && (p->token.type=='+' || p->token.type=='-')) {
+    while (err==0 && strchr(symbols, (char)p->token.type)!=NULL) {
         int op= p->token.type;
         Exp *next;
 
         LexGet (p->ld, &p->token);
-        next= NP_Mul(p);
-
+        next= (*childfun)(p);
         if (next==NULL) {
             err= 1;
             continue;
