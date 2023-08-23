@@ -176,6 +176,15 @@ static Exp *NP_Root(ParseData *p) {
     return e;
 }
 
+/* to solve the left associativity problem, we have to improve
+   NP_Add and NP_Mul, i.e. they won't be recursive any more,
+   instead they use a stack of 'ParsTempElem'
+ */
+typedef struct ParsTempElem {
+    int op; /* opetator as character: + - * / (pow is not relevant here) */
+    Exp *exp;
+} ParsTempElem;
+
 static Exp *NP_Pow(ParseData *p) {
     Exp *left= NULL;
 
@@ -224,65 +233,131 @@ static Exp *NP_Pow(ParseData *p) {
     }
 }
 
+/* NP_Mul and NP_Add are almost identical,
+   they should be wrappers calling a common implementation
+ */
+
 static Exp *NP_Mul(ParseData *p) {
-    Exp *left= NULL;
+    Exp *first= NULL;
+    Stack *stk= NULL;
+    ParsTempElem pte;
+    int err= 0;
 
     if (p->token.type==LT_EOF) {
         return NULL;
 
     } else if (p->token.type==LT_NUM || p->token.type=='(') {
-        left= NP_Pow (p);
-        if (left==NULL) return NULL;
+        first= NP_Pow (p);
+        if (first==NULL) return NULL;
 
     } else {
         NP_PrintErr(p);
         return NULL;
     }
 
-    if (p->token.type=='*' || p->token.type=='/') {
+    stk= Stk_New (sizeof (ParsTempElem));
+    pte.op= 0;
+    pte.exp= first;
+    Stk_Add(stk, &pte);
+
+    while (err==0 && (p->token.type=='*' || p->token.type=='/')) {
         int op= p->token.type;
-        Exp *right;
+        Exp *next;
 
         LexGet (p->ld, &p->token);
-        right= NP_Mul(p);
-        if (right==NULL) {
-            return NULL;
-        } else {
-            return Exp_New(op, left, right);
+        next= NP_Pow(p);
+        if (next==NULL) {
+            err= 1;
+            continue;
         }
+        pte.op= op;
+        pte.exp= next;
+        Stk_Add(stk, &pte);
+    }
+
+    if (err) {
+        int i, n= Stk_Count(stk);
+        for (i= 0; i<n; ++i) {
+            Stk_Get(stk, &pte, i);
+            Exp_Delete(pte.exp);
+        }
+        return NULL;
     } else {
-        return left;
+        int i, n= Stk_Count(stk);
+        Exp *e= NULL;
+
+        if (n>0) {
+            Stk_Get(stk, &pte, 0);
+            e= pte.exp;
+
+            for (i=1; i<n; ++i) {
+                Stk_Get(stk, &pte, i);
+                e= Exp_New(pte.op, e, pte.exp);
+            }
+        }
+        return e;
     }
 }
 
 static Exp *NP_Add(ParseData *p) {
-    Exp *left= NULL;
+    Exp *first= NULL;
+    Stack *stk= NULL;
+    ParsTempElem pte;
+    int err= 0;
 
     if (p->token.type==LT_EOF) {
         return NULL;
 
     } else if (p->token.type==LT_NUM || p->token.type=='(') {
-        left= NP_Mul (p);
-        if (left==NULL) return NULL;
+        first= NP_Mul (p);
+        if (first==NULL) return NULL;
     } else {
         NP_PrintErr(p);
         return NULL;
     }
 
-    if (p->token.type=='+' || p->token.type=='-') {
+    stk= Stk_New (sizeof (ParsTempElem));
+    pte.op= 0;
+    pte.exp= first;
+    Stk_Add(stk, &pte);
+
+    while (err==0 && (p->token.type=='+' || p->token.type=='-')) {
         int op= p->token.type;
-        Exp *right;
+        Exp *next;
 
         LexGet (p->ld, &p->token);
-        right= NP_Add(p);
-        if (right==NULL) {
-            return NULL;
-        } else {
-            return Exp_New(op, left, right);
-        }
+        next= NP_Mul(p);
 
+        if (next==NULL) {
+            err= 1;
+            continue;
+        }
+        pte.op= op;
+        pte.exp= next;
+        Stk_Add(stk, &pte);
+    }
+
+    if (err) {
+        int i, n= Stk_Count(stk);
+        for (i= 0; i<n; ++i) {
+            Stk_Get(stk, &pte, i);
+            Exp_Delete(pte.exp);
+        }
+        return NULL;
     } else {
-        return left;
+        int i, n= Stk_Count(stk);
+        Exp *e= NULL;
+
+        if (n>0) {
+            Stk_Get(stk, &pte, 0);
+            e= pte.exp;
+
+            for (i=1; i<n; ++i) {
+                Stk_Get(stk, &pte, i);
+                e= Exp_New(pte.op, e, pte.exp);
+            }
+        }
+        return e;
     }
 }
 
