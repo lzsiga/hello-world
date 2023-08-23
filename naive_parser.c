@@ -123,7 +123,7 @@ typedef struct TaggedExp {
     int cls; /* CL_xxx */
 } TaggedExp;
 
-#define Empty_TaggedExp {(Exp *)0, 0};
+#define Empty_TaggedExp {(Exp *)0, 0}
 
 static void NP_Root(ParseData *p, TaggedExp *retp);
 static void NP_Add(ParseData *p, TaggedExp *retp);
