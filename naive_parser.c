@@ -8,15 +8,16 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* stack (of pointers) */
+/* stack */
 
 typedef struct Stack Stack; /* this type is opaque */
 
-static Stack *Stk_New(void);
+static Stack *Stk_New(size_t sizeOfBaseType);
 static void   Stk_Delete(Stack *s);
 static int    Stk_Count(Stack *s); /* number of elements */
-static int    Stk_Add(Stack *s, void *p);   /* add to the end */
-static void  *Stk_Get(Stack *s, int index); /* 0 .. base-1 */
+/* the next two functions copy (memcpy) sizeOfBaseType bytes */
+static int    Stk_Add(Stack *s, const void *from);     /* add to the end */
+static void  *Stk_Get(Stack *s, void *to, int index);  /* index: 0 .. base-1 */
 
 static void StackTest(void);
 
@@ -465,51 +466,61 @@ static void Exp_Delete(Exp *e) {
 }
 
 static void StackTest(void) {
+    typedef short StackTestType;
     int n= 7, i;
-    Stack *s= Stk_New();
+    Stack *s= Stk_New(sizeof (StackTestType));
+
     for (i=0; i<n; ++i) {
-        Stk_Add(s, (void *)(intptr_t)(2*i));
+        StackTestType tmp= 2*i;
+        Stk_Add(s, &tmp);
         if (Stk_Count(s) != (i+1)) exit(16);
     }
     for (i=n-1; i>=0; --i) {
-        int tmp= (intptr_t)(Stk_Get(s, i));
+        StackTestType tmp;
+        Stk_Get(s, &tmp, i);
         printf("Stack[%d]=%d (expected %d)\n", i, tmp, 2*i);
     }
     Stk_Delete(s);
 }
 
 struct Stack {
-    void **ptrs;
-    int allocated;
-    int used; /* allocated <= used, 'Stk_Count' returns this */
+    void *data;
+    size_t sizeOfBaseType;
+    size_t allocated;
+    size_t used; /* allocated <= used, 'Stk_Count' returns this */
 };
 
-static Stack *Stk_New(void) {
+static Stack *Stk_New(size_t sizeOfBaseType) {
     Stack *s= calloc(1, sizeof *s);
+    s->sizeOfBaseType= sizeOfBaseType;
     return s;
 }
 
 static void Stk_Delete(Stack *s) {
-    if (s->ptrs) free(s->ptrs);
+    if (s->data) free(s->data);
     free(s);
 }
 
 static int Stk_Count(Stack *s) {
-    return s->used;
+    return (int)s->used;
 }
 
-static int Stk_Add(Stack *s, void *p) {
+static int Stk_Add(Stack *s, const void *from) {
+    int toindex;
+
     if (s->used==s->allocated) {
        int newnum= 2 + 2*s->allocated;
-       s->ptrs= realloc (s->ptrs, newnum * sizeof (void *));
+       s->data= realloc (s->data, newnum * s->sizeOfBaseType);
        s->allocated= newnum;
     }
-    s->ptrs[s->used]= p;
+    toindex= s->used;
     ++s->used;
-    return s->used -1; /* index */
+    memcpy ((char *)s->data + toindex*s->sizeOfBaseType, from, s->sizeOfBaseType);
+    return toindex;
 }
 
-void *Stk_Get(Stack *s, int index) {
-    if (index<0 && index>=s->used) exit(15);
-    return s->ptrs[index];
+static void *Stk_Get(Stack *s, void *to, int index) {
+    if (index<0 && (size_t)index >= s->used) exit(15);
+    memcpy (to, (char *)s->data + index*s->sizeOfBaseType, s->sizeOfBaseType);
+    return to;
 }
