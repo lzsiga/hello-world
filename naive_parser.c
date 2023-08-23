@@ -3,9 +3,22 @@
 #include <ctype.h>
 #include <math.h>
 #include <stdarg.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+/* stack (of pointers) */
+
+typedef struct Stack Stack; /* this type is opaque */
+
+static Stack *Stk_New(void);
+static void   Stk_Delete(Stack *s);
+static int    Stk_Count(Stack *s); /* number of elements */
+static int    Stk_Add(Stack *s, void *p);   /* add to the end */
+static void  *Stk_Get(Stack *s, int index); /* 0 .. base-1 */
+
+static void StackTest(void);
 
 /* expression tree */
 
@@ -17,8 +30,6 @@ static double Exp_Eval(const Exp *e);
 static void Exp_Delete(Exp *e);
 static void Exp_Print(const Exp *e, FILE *to);
 
-static Exp *Exp_GetLeft(const Exp *e);
-static void Exp_SetLeft(Exp *e, Exp *newleft); /* _not_ calling Exp_Delete */
 static void ExpTest(void);
 
 /* lexical parser */
@@ -47,9 +58,9 @@ static void LexTest(const char *from);
 
 /* naive parser */
 
-static Exp *NaiveParser(const char *from, int fFixAssoc);
+static Exp *NaiveParser(const char *from);
 
-static void NaiveParsTest(const char *from, int fFixAssoc);
+static void NaiveParsTest(const char *from);
 
 static void DefaultTests(void) {
 static const char Test_01[] = "10.4 -2- 3-(4 - 5)-6";
@@ -66,24 +77,23 @@ static const char Test_21[] = "(1-(3))*((4)/7)";
 static const char Test_22[] = "(1";             /* syntax error */
 static const char Test_23[] = "1+(2+(3";        /* syntax error */
 static const char Test_30[] = "2^3^4";          /* NB pow is right associative, so (2^(3^4)) is the right answer */
-static const char Test_31[] = "(2*3)^(3+1)";
 
+    StackTest();
     ExpTest();
     LexTest(Test_01);
-    NaiveParsTest(Test_10, 0);
-    NaiveParsTest(Test_11, 0);
-    NaiveParsTest(Test_12, 0);
-    NaiveParsTest(Test_13, 0);
-    NaiveParsTest(Test_14, 0);
-    NaiveParsTest(Test_15, 0);
-    NaiveParsTest(Test_16, 0);
-    NaiveParsTest(Test_17, 0);
-    NaiveParsTest(Test_20, 0);
-    NaiveParsTest(Test_21, 0);
-    NaiveParsTest(Test_22, 0);
-    NaiveParsTest(Test_23, 0);
-    NaiveParsTest(Test_30, 0);
-    NaiveParsTest(Test_31, 0);
+    NaiveParsTest(Test_10);
+    NaiveParsTest(Test_11);
+    NaiveParsTest(Test_12);
+    NaiveParsTest(Test_13);
+    NaiveParsTest(Test_14);
+    NaiveParsTest(Test_15);
+    NaiveParsTest(Test_16);
+    NaiveParsTest(Test_17);
+    NaiveParsTest(Test_20);
+    NaiveParsTest(Test_21);
+    NaiveParsTest(Test_22);
+    NaiveParsTest(Test_23);
+    NaiveParsTest(Test_30);
 }
 
 int main (int argc, char **argv) {
@@ -92,27 +102,25 @@ int main (int argc, char **argv) {
    } else {
        int i;
        for (i=1; i<argc; ++i) {
-           NaiveParsTest(argv[i], 0);
-           NaiveParsTest(argv[i], 1);
+           NaiveParsTest(argv[i]);
        }
        return 0;
     }
     return 0;
 }
 
-static void NaiveParsTest(const char *from, int fFixAssoc) {
+static void NaiveParsTest(const char *from) {
     Exp *e;
 
-    printf("NaiveParsTest: input=\"%s\" %s associativity problem\n", from,
-          fFixAssoc? "without": "with");
-    e= NaiveParser(from, fFixAssoc);
-    printf("ResultExp: ");
+    printf("NaiveParsTest: input=\"%s\"\n", from);
+    e= NaiveParser(from);
+    printf("Result: ");
     if (e==NULL) {
         printf("NULL\n");
     } else {
         Exp_Print(e, stdout);
         fputc('\n', stdout);
-        fprintf(stdout, "ResultValue: %g\n", Exp_Eval(e));
+        fprintf(stdout, "Result: %g\n", Exp_Eval(e));
         Exp_Delete(e);
     }
 }
@@ -120,74 +128,30 @@ static void NaiveParsTest(const char *from, int fFixAssoc) {
 typedef struct ParseData {
     LexData *ld;
     LexToken token; /* we keep reading ahead one token */
-    int fFixAssoc;  /* fix associativity problem: 0/other = no/yes */
 } ParseData;
 
-typedef struct TaggedExp {
-    Exp *exp;
-    int cls; /* CL_xxx */
-} TaggedExp;
-
-#define Empty_TaggedExp {(Exp *)0, 0}
-
-static void NP_Root(ParseData *p, TaggedExp *retp);
-static void NP_Add(ParseData *p, TaggedExp *retp);
-static void NP_Mul(ParseData *p, TaggedExp *retp);
-static void NP_Pow(ParseData *p, TaggedExp *retp);
-
-/* naive top-down parsing doesn't support left-recursion,
-   so the modified grammar is this:
-
+static Exp *NP_Root(ParseData *p);
+static Exp *NP_Add(ParseData *p);
+static Exp *NP_Mul(ParseData *p);
+static Exp *NP_Pow(ParseData *p);
+/* naive grammar:
    start -> add
    add   -> mul    | mul  '+' add | mul '-' add
    mul   -> pow    | pow  '*' mul | pow '/' mul
    pow   -> elem   | elem '^' pow
    elem  -> NUMBER | '(' add ')'
-
-   problem with the grammar:
-   2-3-4-5 parsed as 2-(3-(4-5)), it should be ((2-3)-4)-5
-
-   solution:
-   - the parsing function return a 'class' value too (TaggedExp)
-     see CL_xxx values
-
-   - the class value depends on the rule:
-
-      add  ->  mul                    class[result] := class[left]
-             | mul '+' add            class[result] := CL_ADD
-             | mul '-' add            class[result] := CL_ADD
-      mul  ->  pow                    class[result] := class[left]
-             | pow '*' mul            class[result] := CL_MUL
-             | pow '/' mul            class[result] := CL_MUL
-      pow  ->  elem                   class[result] := class[left]
-             | elem '^' pow           class[result] := CL_POW
-      elem ->  NUMBER | '(' add ')'   class[result] := CL_OTHER
-
-   - within some rules expressions are to be reorganized:
-
-      add  ->  mul '+' add     reorg if class[right]==CL_ADD
-             | mul '-' add     reorg if class[right]==CL_ADD
-      mul  ->  pow '*' mul     reorg if class[right]==CL_MUL
-             | pow '/' mul     reorg if class[right]==CL_MUL
-      pow  ->  elem '^' pow    no reorg, pow is right-associative
-
  */
-#define CL_OTHER  0  /* not class for now */
-#define CL_ADD 1000  /* + - */
-#define CL_MUL 1010  /* * / */
-#define CL_POW 1020  /* * / */
 
-static Exp *NaiveParser(const char *from, int fFixAssoc) {
+static Exp *NaiveParser(const char *from) {
     ParseData p;
-    TaggedExp e= Empty_TaggedExp;
+    Exp *e;
 
     memset (&p, 0, sizeof p);
     p.ld= LexInit(from);
-    p.fFixAssoc= fFixAssoc;
     LexGet (p.ld, &p.token);
-    NP_Root(&p, &e);
+    e= NP_Root(&p);
     LexTerm(p.ld);
-    return e.exp;
+    return e;
 }
 
 static void NP_PrintErr(ParseData *p) {
@@ -203,164 +167,121 @@ static void NP_PrintErrF(ParseData *p, char *fmt, ...) {
     LexToken_DebugPrint(&p->token, stderr);
 }
 
-static void NP_Root(ParseData *p, TaggedExp *retp) {
-    TaggedExp e= Empty_TaggedExp;
-
-    NP_Add(p, &e);
+static Exp *NP_Root(ParseData *p) {
+    Exp *e= NP_Add(p);
     if (p->token.type != LT_EOF) {
         NP_PrintErr(p);
     }
-    *retp= e;
+    return e;
 }
 
-#define NP_Return(te) {\
-    *retp= (te); \
-    return; \
-}
-
-static void NP_Pow(ParseData *p, TaggedExp *retp) {
-    TaggedExp left=  Empty_TaggedExp;
-    TaggedExp right= Empty_TaggedExp;
-    TaggedExp empty= Empty_TaggedExp;
+static Exp *NP_Pow(ParseData *p) {
+    Exp *left= NULL;
 
     if (p->token.type==LT_EOF) {
-        NP_Return(empty);
-        return;
+        return NULL;
 
     } else if (p->token.type==LT_NUM) {
-        left.exp= Exp_NewNum (p->token.value);
-        left.cls= CL_OTHER;
+        left= Exp_NewNum (p->token.value);
 
         LexGet (p->ld, &p->token);
 
     } else if (p->token.type=='(') {
+        Exp *nested;
+
         LexGet (p->ld, &p->token);
-        NP_Add(p, &left);
-        if (left.exp!=NULL) {
+        nested= NP_Add(p);
+        if (nested!=NULL) {
             if (p->token.type==')') {
-                LexGet(p->ld, &p->token);
+                LexGet (p->ld, &p->token);
             } else {
                 NP_PrintErrF(p, "*** Missing right parentheses near ");
-                Exp_Delete(left.exp);
-                left.exp= NULL;
+                nested= NULL;   /* if we removed this line, Test_22 and Test_23 would work */
             }
-            left.cls= CL_OTHER;
         }
-        if (left.exp==NULL) NP_Return(empty);
+        if (nested==NULL) return NULL;
+        left= nested;
 
     } else {
         NP_PrintErr(p);
-        NP_Return(empty);
+        return NULL;
     }
 
     if (p->token.type=='^') {
         int op= p->token.type;
+        Exp *right;
 
-        LexGet(p->ld, &p->token);
-        NP_Pow(p, &right);
-        if (right.exp==NULL) {
-            Exp_Delete(left.exp);
-            NP_Return(empty);
-            return;
-
+        LexGet (p->ld, &p->token);
+        right= NP_Pow(p);
+        if (right==NULL) {
+            return NULL;
         } else {
-            /* pow is right-associative, there is nothing to fix */
-            TaggedExp newt= Empty_TaggedExp;
-            newt.exp= Exp_New(op, left.exp, right.exp);
-            newt.cls= CL_POW;
-            NP_Return(newt);
+            return Exp_New(op, left, right);
         }
-
     } else {
-        NP_Return(left);
+        return left;
     }
 }
 
-static void NP_Mul(ParseData *p, TaggedExp *retp) {
-    TaggedExp left=  Empty_TaggedExp;
-    TaggedExp right= Empty_TaggedExp;
-    TaggedExp empty= Empty_TaggedExp;
+static Exp *NP_Mul(ParseData *p) {
+    Exp *left= NULL;
 
     if (p->token.type==LT_EOF) {
-        NP_Return(empty);
+        return NULL;
 
     } else if (p->token.type==LT_NUM || p->token.type=='(') {
-        NP_Pow(p, &left);
-        if (left.exp==NULL) NP_Return(empty);
+        left= NP_Pow (p);
+        if (left==NULL) return NULL;
 
     } else {
         NP_PrintErr(p);
-        NP_Return(empty);
+        return NULL;
     }
 
     if (p->token.type=='*' || p->token.type=='/') {
         int op= p->token.type;
+        Exp *right;
 
-        LexGet(p->ld, &p->token);
-        NP_Mul(p, &right);
-        if (right.exp==NULL) {
-            Exp_Delete(left.exp);
-            NP_Return(empty);
+        LexGet (p->ld, &p->token);
+        right= NP_Mul(p);
+        if (right==NULL) {
+            return NULL;
         } else {
-            /* mul is left-associative, we might have to fix it */
-            if (p->fFixAssoc && right.cls==CL_MUL) {
-                Exp *tmp= Exp_New(op, left.exp, Exp_GetLeft(right.exp));
-                Exp_SetLeft(right.exp, tmp);
-                NP_Return(right);
-            } else {
-                TaggedExp newt =Empty_TaggedExp;
-
-                newt.exp= Exp_New(op, left.exp, right.exp);
-                newt.cls= CL_MUL;
-                NP_Return(newt);
-            }
+            return Exp_New(op, left, right);
         }
     } else {
-        NP_Return(left);
+        return left;
     }
 }
 
-static void NP_Add(ParseData *p, TaggedExp *retp) {
-    TaggedExp left=  Empty_TaggedExp;
-    TaggedExp right= Empty_TaggedExp;
-    TaggedExp empty= Empty_TaggedExp;
+static Exp *NP_Add(ParseData *p) {
+    Exp *left= NULL;
 
     if (p->token.type==LT_EOF) {
-        NP_Return(empty);
+        return NULL;
 
     } else if (p->token.type==LT_NUM || p->token.type=='(') {
-        NP_Mul(p, &left);
-        if (left.exp==NULL) NP_Return(empty);
+        left= NP_Mul (p);
+        if (left==NULL) return NULL;
     } else {
         NP_PrintErr(p);
-        NP_Return(empty);
+        return NULL;
     }
 
     if (p->token.type=='+' || p->token.type=='-') {
         int op= p->token.type;
+        Exp *right;
 
-        LexGet(p->ld, &p->token);
-        NP_Add(p, &right);
-        if (right.exp==NULL) {
-            Exp_Delete(left.exp);
-            NP_Return(empty);
+        LexGet (p->ld, &p->token);
+        right= NP_Add(p);
+        if (right==NULL) {
+            return NULL;
         } else {
-            /* add is left-associative, we might have to fix it */
-            if (p->fFixAssoc && right.cls==CL_ADD) {
-                Exp *tmp= Exp_New(op, left.exp, Exp_GetLeft(right.exp));
-                Exp_SetLeft(right.exp, tmp);
-                NP_Return(right);
-            } else {
-                TaggedExp newt =Empty_TaggedExp;
-
-                newt.exp= Exp_New(op, left.exp, right.exp);
-                newt.cls= CL_ADD;
-                NP_Return(newt);
-            }
+            return Exp_New(op, left, right);
         }
 
     } else {
-        NP_Return(left);
+        return left;
     }
 }
 
@@ -522,8 +443,7 @@ static void Exp_Print(const Exp *e, FILE *to) {
        exit (12);
 
     } else if (e->type=='N') {
-        if (e->value<0) fprintf(to, "(%g)", e->value);
-        else            fprintf(to, "%g",   e->value);
+        fprintf(to, "%g", e->value);
 
     } else if (e->type=='+' || e->type=='-'|| e->type=='*' || e->type=='/' || e->type=='^') {
         fputc('(', to);
@@ -544,11 +464,52 @@ static void Exp_Delete(Exp *e) {
     free(e);
 }
 
-static Exp *Exp_GetLeft(const Exp *e) {
-    return (Exp *)e->left;
+static void StackTest(void) {
+    int n= 7, i;
+    Stack *s= Stk_New();
+    for (i=0; i<n; ++i) {
+        Stk_Add(s, (void *)(intptr_t)(2*i));
+        if (Stk_Count(s) != (i+1)) exit(16);
+    }
+    for (i=n-1; i>=0; --i) {
+        int tmp= (intptr_t)(Stk_Get(s, i));
+        printf("Stack[%d]=%d (expected %d)\n", i, tmp, 2*i);
+    }
+    Stk_Delete(s);
 }
 
-static void Exp_SetLeft(Exp *e, Exp *newleft) {
-    e->left= newleft;
-    /* no Exp_Delete here */
+struct Stack {
+    void **ptrs;
+    int allocated;
+    int used; /* allocated <= used, 'Stk_Count' returns this */
+};
+
+static Stack *Stk_New(void) {
+    Stack *s= calloc(1, sizeof *s);
+    return s;
+}
+
+static void Stk_Delete(Stack *s) {
+    if (s->ptrs) free(s->ptrs);
+    free(s);
+}
+
+static int Stk_Count(Stack *s) {
+    return s->used;
+}
+
+static int Stk_Add(Stack *s, void *p) {
+    if (s->used==s->allocated) {
+       int newnum= 2 + 2*s->allocated;
+       s->ptrs= realloc (s->ptrs, newnum * sizeof (void *));
+       s->allocated= newnum;
+    }
+    s->ptrs[s->used]= p;
+    ++s->used;
+    return s->used -1; /* index */
+}
+
+void *Stk_Get(Stack *s, int index) {
+    if (index<0 && index>=s->used) exit(15);
+    return s->ptrs[index];
 }
