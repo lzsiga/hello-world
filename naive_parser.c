@@ -17,6 +17,8 @@ static double Exp_Eval(const Exp *e);
 static void Exp_Delete(Exp *e);
 static void Exp_Print(const Exp *e, FILE *to);
 
+static Exp *Exp_GetLeft(const Exp *e);
+static void Exp_SetLeft(Exp *e, Exp *newleft); /* _not_ calling Exp_Delete */
 static void ExpTest(void);
 
 /* lexical parser */
@@ -45,9 +47,9 @@ static void LexTest(const char *from);
 
 /* naive parser */
 
-static Exp *NaiveParser(const char *from);
+static Exp *NaiveParser(const char *from, int fFixAssoc);
 
-static void NaiveParsTest(const char *from);
+static void NaiveParsTest(const char *from, int fFixAssoc);
 
 static void DefaultTests(void) {
 static const char Test_01[] = "10.4 -2- 3-(4 - 5)-6";
@@ -68,20 +70,20 @@ static const char Test_31[] = "(2*3)^(3+1)";
 
     ExpTest();
     LexTest(Test_01);
-    NaiveParsTest(Test_10);
-    NaiveParsTest(Test_11);
-    NaiveParsTest(Test_12);
-    NaiveParsTest(Test_13);
-    NaiveParsTest(Test_14);
-    NaiveParsTest(Test_15);
-    NaiveParsTest(Test_16);
-    NaiveParsTest(Test_17);
-    NaiveParsTest(Test_20);
-    NaiveParsTest(Test_21);
-    NaiveParsTest(Test_22);
-    NaiveParsTest(Test_23);
-    NaiveParsTest(Test_30);
-    NaiveParsTest(Test_31);
+    NaiveParsTest(Test_10, 0);
+    NaiveParsTest(Test_11, 0);
+    NaiveParsTest(Test_12, 0);
+    NaiveParsTest(Test_13, 0);
+    NaiveParsTest(Test_14, 0);
+    NaiveParsTest(Test_15, 0);
+    NaiveParsTest(Test_16, 0);
+    NaiveParsTest(Test_17, 0);
+    NaiveParsTest(Test_20, 0);
+    NaiveParsTest(Test_21, 0);
+    NaiveParsTest(Test_22, 0);
+    NaiveParsTest(Test_23, 0);
+    NaiveParsTest(Test_30, 0);
+    NaiveParsTest(Test_31, 0);
 }
 
 int main (int argc, char **argv) {
@@ -90,18 +92,20 @@ int main (int argc, char **argv) {
    } else {
        int i;
        for (i=1; i<argc; ++i) {
-           NaiveParsTest(argv[i]);
+           NaiveParsTest(argv[i], 0);
+           NaiveParsTest(argv[i], 1);
        }
        return 0;
     }
     return 0;
 }
 
-static void NaiveParsTest(const char *from) {
+static void NaiveParsTest(const char *from, int fFixAssoc) {
     Exp *e;
 
-    printf("NaiveParsTest: input=\"%s\"\n", from);
-    e= NaiveParser(from);
+    printf("NaiveParsTest: input=\"%s\" %s associativity problem\n", from,
+          fFixAssoc? "without": "with");
+    e= NaiveParser(from, fFixAssoc);
     printf("ResultExp: ");
     if (e==NULL) {
         printf("NULL\n");
@@ -116,6 +120,7 @@ static void NaiveParsTest(const char *from) {
 typedef struct ParseData {
     LexData *ld;
     LexToken token; /* we keep reading ahead one token */
+    int fFixAssoc;  /* fix associativity problem: 0/other = no/yes */
 } ParseData;
 
 typedef struct TaggedExp {
@@ -172,12 +177,13 @@ static void NP_Pow(ParseData *p, TaggedExp *retp);
 #define CL_MUL 1010  /* * / */
 #define CL_POW 1020  /* * / */
 
-static Exp *NaiveParser(const char *from) {
+static Exp *NaiveParser(const char *from, int fFixAssoc) {
     ParseData p;
     TaggedExp e= Empty_TaggedExp;
 
     memset (&p, 0, sizeof p);
     p.ld= LexInit(from);
+    p.fFixAssoc= fFixAssoc;
     LexGet (p.ld, &p.token);
     NP_Root(&p, &e);
     LexTerm(p.ld);
@@ -258,6 +264,7 @@ static void NP_Pow(ParseData *p, TaggedExp *retp) {
             return;
 
         } else {
+            /* pow is right-associative, there is nothing to fix */
             TaggedExp newt= Empty_TaggedExp;
             newt.exp= Exp_New(op, left.exp, right.exp);
             newt.cls= CL_POW;
@@ -295,10 +302,18 @@ static void NP_Mul(ParseData *p, TaggedExp *retp) {
             Exp_Delete(left.exp);
             NP_Return(empty);
         } else {
-            TaggedExp newt= Empty_TaggedExp;
-            newt.exp= Exp_New(op, left.exp, right.exp);
-            newt.cls= CL_MUL;
-            NP_Return(newt);
+            /* mul is left-associative, we might have to fix it */
+            if (p->fFixAssoc && right.cls==CL_MUL) {
+                Exp *tmp= Exp_New(op, left.exp, Exp_GetLeft(right.exp));
+                Exp_SetLeft(right.exp, tmp);
+                NP_Return(right);
+            } else {
+                TaggedExp newt =Empty_TaggedExp;
+
+                newt.exp= Exp_New(op, left.exp, right.exp);
+                newt.cls= CL_MUL;
+                NP_Return(newt);
+            }
         }
     } else {
         NP_Return(left);
@@ -330,10 +345,18 @@ static void NP_Add(ParseData *p, TaggedExp *retp) {
             Exp_Delete(left.exp);
             NP_Return(empty);
         } else {
-            TaggedExp newt= Empty_TaggedExp;
-            newt.exp= Exp_New(op, left.exp, right.exp);
-            newt.cls= CL_ADD;
-            NP_Return(newt);
+            /* add is left-associative, we might have to fix it */
+            if (p->fFixAssoc && right.cls==CL_ADD) {
+                Exp *tmp= Exp_New(op, left.exp, Exp_GetLeft(right.exp));
+                Exp_SetLeft(right.exp, tmp);
+                NP_Return(right);
+            } else {
+                TaggedExp newt =Empty_TaggedExp;
+
+                newt.exp= Exp_New(op, left.exp, right.exp);
+                newt.cls= CL_ADD;
+                NP_Return(newt);
+            }
         }
 
     } else {
@@ -519,4 +542,13 @@ static void Exp_Delete(Exp *e) {
     Exp_Delete(e->left);
     Exp_Delete(e->right);
     free(e);
+}
+
+static Exp *Exp_GetLeft(const Exp *e) {
+    return (Exp *)e->left;
+}
+
+static void Exp_SetLeft(Exp *e, Exp *newleft) {
+    e->left= newleft;
+    /* no Exp_Delete here */
 }
