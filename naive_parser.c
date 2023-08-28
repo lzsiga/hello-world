@@ -232,6 +232,7 @@ static Exp *NP_Elem (ParseData *p) {
                 LexGet(p->ld, &p->token);
             } else {
                 NP_PrintErrF(p, "*** Missing right parentheses near ");
+                Exp_Delete(e);
                 e= NULL;
             }
         }
@@ -240,7 +241,7 @@ static Exp *NP_Elem (ParseData *p) {
 }
 
 static Exp *NP_Pow(ParseData *p) {
-    Exp *first= NULL;
+    Exp *first= NULL, *ret= NULL;
     Stack *stk= NULL;
     ParsTempElem pte;
     int err= 0;
@@ -283,7 +284,7 @@ static Exp *NP_Pow(ParseData *p) {
             Stk_Get(stk, &pte, i);
             Exp_Delete(pte.exp);
         }
-        return NULL;
+        ret= NULL;
     } else {
         int i, n= Stk_Count(stk);
         Exp *e= NULL;
@@ -300,8 +301,10 @@ static Exp *NP_Pow(ParseData *p) {
                 op= pte.op;
             }
         }
-        return e;
+        ret= e;
     }
+    Stk_Delete(stk);
+    return ret;
 }
 
 /* NP_Mul and NP_Add are almost identical,
@@ -312,7 +315,7 @@ static Exp *NP_Pow(ParseData *p) {
  */
 
 static Exp *NP_Mul(ParseData *p) {
-    Exp *first= NULL;
+    Exp *first= NULL, *ret= NULL;
     Stack *stk= NULL;
     ParsTempElem pte;
     int err= 0;
@@ -355,7 +358,7 @@ static Exp *NP_Mul(ParseData *p) {
             Stk_Get(stk, &pte, i);
             Exp_Delete(pte.exp);
         }
-        return NULL;
+        ret= NULL;
     } else {
         int i, n= Stk_Count(stk);
         Exp *e= NULL;
@@ -369,12 +372,14 @@ static Exp *NP_Mul(ParseData *p) {
                 e= Exp_New(pte.op, e, pte.exp);
             }
         }
-        return e;
+        ret= e;
     }
+    Stk_Delete(stk);
+    return ret;
 }
 
 static Exp *NP_Add(ParseData *p) {
-    Exp *first= NULL;
+    Exp *first= NULL, *ret= NULL;
     Stack *stk= NULL;
     ParsTempElem pte;
     int err= 0;
@@ -417,7 +422,7 @@ static Exp *NP_Add(ParseData *p) {
             Stk_Get(stk, &pte, i);
             Exp_Delete(pte.exp);
         }
-        return NULL;
+        ret= NULL;
     } else {
         int i, n= Stk_Count(stk);
         Exp *e= NULL;
@@ -431,8 +436,10 @@ static Exp *NP_Add(ParseData *p) {
                 e= Exp_New(pte.op, e, pte.exp);
             }
         }
-        return e;
+        ret= e;
     }
+    Stk_Delete(stk);
+    return ret;
 }
 
 static void LexTest(const char *from) {
