@@ -14,19 +14,6 @@ static void *emalloc(size_t s);
 static void *ecalloc(size_t s1, size_t s2);
 static void *erealloc(void *p, size_t s);
 
-/* stack */
-
-typedef struct Stack Stack; /* this type is opaque */
-
-static Stack *Stk_New(size_t sizeOfBaseType);
-static void   Stk_Delete(Stack *s);
-static int    Stk_Count(Stack *s); /* number of elements */
-/* the next two functions copy (memcpy) sizeOfBaseType bytes */
-static int    Stk_Add(Stack *s, const void *from);     /* add to the end */
-static void  *Stk_Get(Stack *s, void *to, int index);  /* index: 0 .. count-1 */
-
-static void StackTest(void);
-
 /* expression tree */
 
 typedef struct Exp Exp; /* this type is opaque */
@@ -85,7 +72,6 @@ static const char Test_22[] = "(1";             /* syntax error */
 static const char Test_23[] = "1+(2+(3";        /* syntax error */
 static const char Test_30[] = "2^3^4";          /* NB pow is right associative, so (2^(3^4)) is the right answer */
 
-    StackTest();
     ExpTest();
     LexTest(Test_01);
     NaiveParsTest(Test_10);
@@ -104,7 +90,8 @@ static const char Test_30[] = "2^3^4";          /* NB pow is right associative, 
 }
 
 int main (int argc, char **argv) {
-   (void)emalloc; /* for some reason it is never used */
+   (void)emalloc;  /* for some reason it is never used */
+   (void)erealloc; /* for some reason it is never used */
 
    if (argc==1) {
        DefaultTests();
@@ -144,21 +131,21 @@ static Exp *NP_Add(ParseData *p);
 static Exp *NP_Mul(ParseData *p);
 static Exp *NP_Pow(ParseData *p);
 
-/* original right-recursive grammar (except for 'pow'):
+/* #1 original right-recursive grammar (except for 'pow'):
    start -> add
    add   -> mul    | add  '+' mul | add '-' mul
    mul   -> pow    | mul  '*' pow | mul '/' pow
    pow   -> elem   | elem '^' pow
    elem  -> NUMBER | '(' add ')'
 
-   transformed to left-recursive:
+   #2 transformed to left-recursive:
    start -> add
    add   -> mul    | mul  '+' add | mul '-' add
    mul   -> pow    | pow  '*' mul | pow '/' mul
    pow   -> elem   | elem '^' pow
    elem  -> NUMBER | '(' add ')'
 
-   non-recursive grammar:
+   #3 non-recursive grammar:
    start -> add
    add   -> mul    [ {'+'|'-'} mul ] ...
    mul   -> pow    [ {'*'|'/'} pow ] ...
@@ -206,8 +193,8 @@ static Exp *NP_Root(ParseData *p) {
 }
 
 /* to solve the left associativity problem, we had to improve
-   NP_Add and NP_Mul, i.e. they aren't recursive any more,
-   instead they use a stack of 'ParsTempElem'
+   NP_Add and NP_Mul, i.e. they aren't recursive any more
+   see grammar #3
  */
 typedef struct ParsTempElem {
     int op; /* opetator as character: + - * / (pow is not relevant here) */
@@ -240,71 +227,37 @@ static Exp *NP_Elem (ParseData *p) {
     return e;
 }
 
+/* NP_Pow right-associative, implemented via recursion (grammar #2) */
+
 static Exp *NP_Pow(ParseData *p) {
-    Exp *first= NULL, *ret= NULL;
-    Stack *stk= NULL;
-    ParsTempElem pte;
-    int err= 0;
+    Exp *e= NULL;
 
     if (p->token.type==LT_EOF) {
         return NULL;
 
     } else if (p->token.type==LT_NUM || p->token.type=='(') {
-        first= NP_Elem(p);
-        if (!first) return NULL;
+        e= NP_Elem(p);
+        if (!e) return NULL;
 
     } else {
         NP_PrintErr(p);
         return NULL;
     }
 
-    stk= Stk_New (sizeof (ParsTempElem));
-    pte.op= 0;
-    pte.exp= first;
-    Stk_Add(stk, &pte);
-
-    while (err==0 && p->token.type=='^') {
+    if (p->token.type=='^') {
         int op= p->token.type;
         Exp *next;
 
         LexGet (p->ld, &p->token);
-        next= NP_Elem(p);
+        next= NP_Pow(p);
         if (next==NULL) {
-            err= 1;
-            continue;
+            Exp_Delete(e);
+            e= NULL;
+        } else {
+            e= Exp_New(op, e, next);
         }
-        pte.op= op;
-        pte.exp= next;
-        Stk_Add(stk, &pte);
     }
-
-    if (err) {
-        int i, n= Stk_Count(stk);
-        for (i= 0; i<n; ++i) {
-            Stk_Get(stk, &pte, i);
-            Exp_Delete(pte.exp);
-        }
-        ret= NULL;
-    } else {
-        int i, n= Stk_Count(stk);
-        Exp *e= NULL;
-
-        if (n>0) {
-            int op;
-            Stk_Get(stk, &pte, n-1);
-            e= pte.exp;
-            op= pte.op;
-
-            for (i=n-2; i>=0; --i) {
-                Stk_Get(stk, &pte, i);
-                e= Exp_New(op, pte.exp, e);
-                op= pte.op;
-            }
-        }
-        ret= e;
-    }
-    Stk_Delete(stk);
-    return ret;
+    return e;
 }
 
 /* NP_Mul and NP_Add are almost identical,
@@ -315,27 +268,20 @@ static Exp *NP_Pow(ParseData *p) {
  */
 
 static Exp *NP_Mul(ParseData *p) {
-    Exp *first= NULL, *ret= NULL;
-    Stack *stk= NULL;
-    ParsTempElem pte;
+    Exp *e= NULL;
     int err= 0;
 
     if (p->token.type==LT_EOF) {
         return NULL;
 
     } else if (p->token.type==LT_NUM || p->token.type=='(') {
-        first= NP_Pow (p);
-        if (first==NULL) return NULL;
+        e= NP_Pow (p);
+        if (e==NULL) return NULL;
 
     } else {
         NP_PrintErr(p);
         return NULL;
     }
-
-    stk= Stk_New (sizeof (ParsTempElem));
-    pte.op= 0;
-    pte.exp= first;
-    Stk_Add(stk, &pte);
 
     while (err==0 && (p->token.type=='*' || p->token.type=='/')) {
         int op= p->token.type;
@@ -345,60 +291,32 @@ static Exp *NP_Mul(ParseData *p) {
         next= NP_Pow(p);
         if (next==NULL) {
             err= 1;
-            continue;
+        } else {
+            e= Exp_New(op, e, next);
         }
-        pte.op= op;
-        pte.exp= next;
-        Stk_Add(stk, &pte);
     }
 
     if (err) {
-        int i, n= Stk_Count(stk);
-        for (i= 0; i<n; ++i) {
-            Stk_Get(stk, &pte, i);
-            Exp_Delete(pte.exp);
-        }
-        ret= NULL;
-    } else {
-        int i, n= Stk_Count(stk);
-        Exp *e= NULL;
-
-        if (n>0) {
-            Stk_Get(stk, &pte, 0);
-            e= pte.exp;
-
-            for (i=1; i<n; ++i) {
-                Stk_Get(stk, &pte, i);
-                e= Exp_New(pte.op, e, pte.exp);
-            }
-        }
-        ret= e;
+        Exp_Delete(e);
+        e= NULL;
     }
-    Stk_Delete(stk);
-    return ret;
+    return e;
 }
 
 static Exp *NP_Add(ParseData *p) {
-    Exp *first= NULL, *ret= NULL;
-    Stack *stk= NULL;
-    ParsTempElem pte;
+    Exp *e= NULL;
     int err= 0;
 
     if (p->token.type==LT_EOF) {
         return NULL;
 
     } else if (p->token.type==LT_NUM || p->token.type=='(') {
-        first= NP_Mul (p);
-        if (first==NULL) return NULL;
+        e= NP_Mul (p);
+        if (e==NULL) return NULL;
     } else {
         NP_PrintErr(p);
         return NULL;
     }
-
-    stk= Stk_New (sizeof (ParsTempElem));
-    pte.op= 0;
-    pte.exp= first;
-    Stk_Add(stk, &pte);
 
     while (err==0 && (p->token.type=='+' || p->token.type=='-')) {
         int op= p->token.type;
@@ -409,37 +327,16 @@ static Exp *NP_Add(ParseData *p) {
 
         if (next==NULL) {
             err= 1;
-            continue;
+        } else {
+            e= Exp_New(op, e, next);
         }
-        pte.op= op;
-        pte.exp= next;
-        Stk_Add(stk, &pte);
     }
 
     if (err) {
-        int i, n= Stk_Count(stk);
-        for (i= 0; i<n; ++i) {
-            Stk_Get(stk, &pte, i);
-            Exp_Delete(pte.exp);
-        }
-        ret= NULL;
-    } else {
-        int i, n= Stk_Count(stk);
-        Exp *e= NULL;
-
-        if (n>0) {
-            Stk_Get(stk, &pte, 0);
-            e= pte.exp;
-
-            for (i=1; i<n; ++i) {
-                Stk_Get(stk, &pte, i);
-                e= Exp_New(pte.op, e, pte.exp);
-            }
-        }
-        ret= e;
+        Exp_Delete(e);
+        e= NULL;
     }
-    Stk_Delete(stk);
-    return ret;
+    return e;
 }
 
 static void LexTest(const char *from) {
@@ -619,66 +516,6 @@ static void Exp_Delete(Exp *e) {
     Exp_Delete(e->left);
     Exp_Delete(e->right);
     free(e);
-}
-
-static void StackTest(void) {
-    typedef short StackTestType;
-    int n= 7, i;
-    Stack *s= Stk_New(sizeof (StackTestType));
-
-    for (i=0; i<n; ++i) {
-        StackTestType tmp= 2*i;
-        Stk_Add(s, &tmp);
-        if (Stk_Count(s) != (i+1)) exit(16);
-    }
-    for (i=n-1; i>=0; --i) {
-        StackTestType tmp;
-        Stk_Get(s, &tmp, i);
-        printf("Stack[%d]=%d (expected %d)\n", i, tmp, 2*i);
-    }
-    Stk_Delete(s);
-}
-
-struct Stack {
-    void *data;
-    size_t sizeOfBaseType;
-    size_t allocated;
-    size_t used; /* allocated <= used, 'Stk_Count' returns this */
-};
-
-static Stack *Stk_New(size_t sizeOfBaseType) {
-    Stack *s= (Stack *)ecalloc(1, sizeof *s);
-    s->sizeOfBaseType= sizeOfBaseType;
-    return s;
-}
-
-static void Stk_Delete(Stack *s) {
-    if (s->data) free(s->data);
-    free(s);
-}
-
-static int Stk_Count(Stack *s) {
-    return (int)s->used;
-}
-
-static int Stk_Add(Stack *s, const void *from) {
-    int toindex;
-
-    if (s->used==s->allocated) {
-       int newnum= 2 + 2*s->allocated;
-       s->data= erealloc (s->data, newnum * s->sizeOfBaseType);
-       s->allocated= newnum;
-    }
-    toindex= s->used;
-    ++s->used;
-    memcpy ((char *)s->data + toindex*s->sizeOfBaseType, from, s->sizeOfBaseType);
-    return toindex;
-}
-
-static void *Stk_Get(Stack *s, void *to, int index) {
-    if (index<0 && (size_t)index >= s->used) exit(15);
-    memcpy (to, (char *)s->data + index*s->sizeOfBaseType, s->sizeOfBaseType);
-    return to;
 }
 
 /* memory management with error handling */
