@@ -169,7 +169,7 @@ static void NP_PrintErr(ParseData *p) {
     LexToken_DebugPrint(&p->token, stderr);
 }
 
-static void NP_PrintErrF(ParseData *p, char *fmt, ...) {
+static void NP_PrintErrF(ParseData *p, const char *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
     vfprintf(stderr, fmt, ap);
