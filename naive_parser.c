@@ -8,6 +8,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* memory management with error handling */
+
+static void *emalloc(size_t s);
+static void *ecalloc(size_t s1, size_t s2);
+static void *erealloc(void *p, size_t s);
+
 /* stack */
 
 typedef struct Stack Stack; /* this type is opaque */
@@ -17,7 +23,7 @@ static void   Stk_Delete(Stack *s);
 static int    Stk_Count(Stack *s); /* number of elements */
 /* the next two functions copy (memcpy) sizeOfBaseType bytes */
 static int    Stk_Add(Stack *s, const void *from);     /* add to the end */
-static void  *Stk_Get(Stack *s, void *to, int index);  /* index: 0 .. base-1 */
+static void  *Stk_Get(Stack *s, void *to, int index);  /* index: 0 .. count-1 */
 
 static void StackTest(void);
 
@@ -98,6 +104,8 @@ static const char Test_30[] = "2^3^4";          /* NB pow is right associative, 
 }
 
 int main (int argc, char **argv) {
+   (void)emalloc; /* for some reason it is never used */
+
    if (argc==1) {
        DefaultTests();
    } else {
@@ -455,7 +463,7 @@ struct LexData {
 };
 
 static LexData *LexInit(const char *pfrom) {
-    LexData *ld= (LexData *)calloc(1, sizeof *ld);
+    LexData *ld= (LexData *)ecalloc(1, sizeof *ld);
     ld->from= strdup(pfrom);
     ld->ptr= ld->from;
     ld->lim= ld->from + strlen(ld->from);
@@ -536,14 +544,14 @@ struct Exp {
 };
 
 static Exp *Exp_NewNum(double pvalue) {
-    Exp *e= (Exp *)calloc(1, sizeof *e);
+    Exp *e= (Exp *)ecalloc(1, sizeof *e);
     e->type= 'N';
     e->value= pvalue;
     return e;
 }
 
 static Exp *Exp_New(char ptype, Exp *pleft, Exp *pright) {
-    Exp *e= (Exp *)calloc(1, sizeof *e);
+    Exp *e= (Exp *)ecalloc(1, sizeof *e);
     e->type= ptype;
     e->left= pleft;
     e->right= pright;
@@ -632,7 +640,7 @@ struct Stack {
 };
 
 static Stack *Stk_New(size_t sizeOfBaseType) {
-    Stack *s= (Stack *)calloc(1, sizeof *s);
+    Stack *s= (Stack *)ecalloc(1, sizeof *s);
     s->sizeOfBaseType= sizeOfBaseType;
     return s;
 }
@@ -651,7 +659,7 @@ static int Stk_Add(Stack *s, const void *from) {
 
     if (s->used==s->allocated) {
        int newnum= 2 + 2*s->allocated;
-       s->data= realloc (s->data, newnum * s->sizeOfBaseType);
+       s->data= erealloc (s->data, newnum * s->sizeOfBaseType);
        s->allocated= newnum;
     }
     toindex= s->used;
@@ -664,4 +672,33 @@ static void *Stk_Get(Stack *s, void *to, int index) {
     if (index<0 && (size_t)index >= s->used) exit(15);
     memcpy (to, (char *)s->data + index*s->sizeOfBaseType, s->sizeOfBaseType);
     return to;
+}
+
+/* memory management with error handling */
+
+void *emalloc(size_t s) {
+    void *p= malloc(s);
+    if (!p && s!=0) {
+        fprintf(stderr, "*** Out of memory in malloc(%ld)\n", (long)s);
+        exit(20);
+    }
+    return p;
+}
+
+void *ecalloc(size_t s1, size_t s2) {
+    void *p= calloc(s1, s2);
+    if (!p && s1!=0 && s2!=0)  {
+        fprintf(stderr, "*** Out of memory in calloc(%ld, %ld)\n", (long)s1, (long)s2);
+        exit(20);
+    }
+    return p;
+}
+
+void *erealloc(void *p, size_t s) {
+    void *q= realloc(p, s);
+    if (!q && s!=0) {
+        fprintf(stderr, "*** Out of memory in realloc(%ld)\n", (long)s);
+        exit(20);
+    }
+    return q;
 }
