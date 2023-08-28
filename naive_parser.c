@@ -440,7 +440,7 @@ struct LexData {
 };
 
 static LexData *LexInit(const char *pfrom) {
-    LexData *ld= calloc(1, sizeof *ld);
+    LexData *ld= (LexData *)calloc(1, sizeof *ld);
     ld->from= strdup(pfrom);
     ld->ptr= ld->from;
     ld->lim= ld->from + strlen(ld->from);
@@ -521,14 +521,14 @@ struct Exp {
 };
 
 static Exp *Exp_NewNum(double pvalue) {
-    Exp *e= calloc(1, sizeof *e);
+    Exp *e= (Exp *)calloc(1, sizeof *e);
     e->type= 'N';
     e->value= pvalue;
     return e;
 }
 
 static Exp *Exp_New(char ptype, Exp *pleft, Exp *pright) {
-    Exp *e= calloc(1, sizeof *e);
+    Exp *e= (Exp *)calloc(1, sizeof *e);
     e->type= ptype;
     e->left= pleft;
     e->right= pright;
@@ -617,7 +617,7 @@ struct Stack {
 };
 
 static Stack *Stk_New(size_t sizeOfBaseType) {
-    Stack *s= calloc(1, sizeof *s);
+    Stack *s= (Stack *)calloc(1, sizeof *s);
     s->sizeOfBaseType= sizeOfBaseType;
     return s;
 }
