@@ -143,7 +143,7 @@ static Exp *NP_Pow(ParseData *p);
    pow   -> elem   | elem '^' pow
    elem  -> NUMBER | '(' add ')'
 
-   transformed to left-revursive:
+   transformed to left-recursive:
    start -> add
    add   -> mul    | mul  '+' add | mul '-' add
    mul   -> pow    | pow  '*' mul | pow '/' mul
