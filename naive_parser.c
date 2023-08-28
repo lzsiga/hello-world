@@ -135,7 +135,15 @@ static Exp *NP_Root(ParseData *p);
 static Exp *NP_Add(ParseData *p);
 static Exp *NP_Mul(ParseData *p);
 static Exp *NP_Pow(ParseData *p);
-/* original grammar:
+
+/* original right-recursive grammar (except for 'pow'):
+   start -> add
+   add   -> mul    | add  '+' mul | add '-' mul
+   mul   -> pow    | mul  '*' pow | mul '/' pow
+   pow   -> elem   | elem '^' pow
+   elem  -> NUMBER | '(' add ')'
+
+   transformed to left-revursive:
    start -> add
    add   -> mul    | mul  '+' add | mul '-' add
    mul   -> pow    | pow  '*' mul | pow '/' mul
@@ -149,7 +157,11 @@ static Exp *NP_Pow(ParseData *p);
    pow   -> elem   [ '^' elem ] ...
    elem  -> NUMBER | '(' add ')'
 
-   NB negative/positive sign is not handled
+   NB negative/positive sign is not handled,
+   nor does it seem easy, here is some questions:
+   --2   is -(-(2)) or -(-2) or 2
+   -2*-3 is -(2*(-3)) or (-2)*(-3) -- they are equals anyways
+   -2^-3 is -(2^(-3)) or (-2)^(-3) -- those are different
  */
 
 static Exp *NaiveParser(const char *from) {
@@ -286,6 +298,9 @@ static Exp *NP_Pow(ParseData *p) {
 
 /* NP_Mul and NP_Add are almost identical,
    they should be wrappers calling a common implementation
+   Later: done and undone that, it was not beginner-friendly enough.
+   Also I have doubts if handling of the positive/negative sign
+   (should it ever happen) would be the same
  */
 
 static Exp *NP_Mul(ParseData *p) {
