@@ -155,8 +155,8 @@ static Exp *NP_Pow(ParseData *p);
    NB negative/positive sign is not handled,
    nor does it seem easy, here is some questions:
    --2   is -(-(2)) or -(-2) or 2
-   -2*-3 is -(2*(-3)) or (-2)*(-3) -- they are equals anyways
-   -2^-3 is -(2^(-3)) or (-2)^(-3) -- those are different
+   -3*-2 is -(3*(-2)) or (-3)*(-2) -- they are equals anyways
+   -3^-2 is -(3^(-2)) or (-3)^(-2) -- those are different
  */
 
 static Exp *NaiveParser(const char *from) {
@@ -196,10 +196,6 @@ static Exp *NP_Root(ParseData *p) {
    NP_Add and NP_Mul, i.e. they aren't recursive any more
    see grammar #3
  */
-typedef struct ParsTempElem {
-    int op; /* opetator as character: + - * / (pow is not relevant here) */
-    Exp *exp;
-} ParsTempElem;
 
 static Exp *NP_Elem (ParseData *p) {
     Exp *e= NULL;
