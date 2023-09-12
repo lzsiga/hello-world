@@ -18,6 +18,12 @@ static void *erealloc(void *p, size_t s);
 
 typedef struct Exp Exp; /* this type is opaque */
 
+/* special values that differ from any valid pointer;
+   they are used during the parsing
+ */
+#define Exp_ERR   ((Exp *)0)
+#define Exp_EMPTY ((Exp *)1)
+
 static Exp *Exp_NewNum(double pvalue);
 static Exp *Exp_New(char ptype, Exp *pleft, Exp *pright);
 static double Exp_Eval(const Exp *e);
@@ -268,7 +274,7 @@ static Exp *NP_Mul(ParseData *p) {
     int err= 0;
 
     if (p->token.type==LT_EOF) {
-        return NULL;
+        return Exp_ERR;
 
     } else if (p->token.type==LT_NUM || p->token.type=='(') {
         e= NP_Pow (p);
@@ -276,7 +282,7 @@ static Exp *NP_Mul(ParseData *p) {
 
     } else {
         NP_PrintErr(p);
-        return NULL;
+        return Exp_ERR;
     }
 
     while (err==0 && (p->token.type=='*' || p->token.type=='/')) {
@@ -294,7 +300,7 @@ static Exp *NP_Mul(ParseData *p) {
 
     if (err) {
         Exp_Delete(e);
-        e= NULL;
+        e= Exp_ERR;
     }
     return e;
 }
