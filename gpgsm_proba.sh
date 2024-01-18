@@ -3,6 +3,11 @@
 # fajlok: proba.p12, proba.pwd, rootca.cert, intca.cert
 # hivott: openssl-3.x.y
 
+# ebben a peldaban az eredeti proba.p12 fajlbol 'kifelejtodott' a chain;
+# mivel ugyis ujraepitjuk a fajlt (a gpgsm korlatozott pkcs12-olvasasi
+# kepessege miatt 'legacy' formatumban), ezt is potoljuk,
+# a rootca.cert es intca.cert fajlokbol
+
 set -u
 set -e
 set -o pipefail
@@ -34,7 +39,7 @@ STDOPT='--disable-crl-checks
 
 PWDOPT="$STDOPT --pinentry-mode loopback --passphrase-fd 0"
 
-gpgsm $STDOPT --pinentry-mode loopback --passphrase-fd 0 --import proba_rebuilt.p12 <proba.pwd 2>&1 | tee proba_01.log
+gpgsm $PWDOPT --import proba_rebuilt.p12 <proba.pwd 2>&1 | tee proba_01.log
 RC=$?
 (gpgsm --dump-cert; gpgsm -K) >proba_rebuilt.dump
 if [ $RC -eq 0 ]; then
