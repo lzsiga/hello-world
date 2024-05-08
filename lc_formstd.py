@@ -22,7 +22,7 @@ def redundantBracket(s):
     else:
         return -1
 
-def checkerSimplifier(s): # megtudjuk Ámor szándékát
+def checkerSimplifier(s):
     res= ''
     depth= 0
     killset= set()
