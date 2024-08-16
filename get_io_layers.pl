@@ -1,6 +1,6 @@
 #!/usr/local/bin/perl
 
-# usage: require "get_io_layers.pL"
+# usage: require "./get_io_layers.pl"
 # printf("IO Layers of somefile: %s\n", GetIoLayers($fh));
 
 # result:
