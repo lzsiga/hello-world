@@ -35,8 +35,8 @@ sub ListLayers {
     my $s= '';
     for (my $i= 0; $i<$len; $i += 3) {
         if ($i>0) { $s .= ' '; }
-        if ($lst[$i+1]) { $s .= sprintf ("%s(%s)-%x", $lst->[$i], $lst->[$i+1], $lst->[$i+2]); }
-        else            { $s .= sprintf ("%s-%x", $lst->[$i], $lst->[$i+2]); }
+        if ($lst->[$i+1]) { $s .= sprintf ("%s(%s)-%x", $lst->[$i], $lst->[$i+1], $lst->[$i+2]); }
+        else              { $s .= sprintf ("%s-%x", $lst->[$i], $lst->[$i+2]); }
     }
     return $s;
 }
