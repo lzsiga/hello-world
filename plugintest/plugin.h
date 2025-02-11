@@ -8,6 +8,7 @@ typedef struct CatData CatData;
 typedef struct DogData DogData;
 
 struct PluginPublicData {
+    int      (*PluginTerm)(PluginPublicData *p);
     CatData *(*Cat_Alloc) (PluginPublicData *p, const char *name);
     int      (*Cat_Free)  (PluginPublicData *p, CatData *);
     DogData *(*Dog_Alloc) (PluginPublicData *p, const char *name);
@@ -15,7 +16,7 @@ struct PluginPublicData {
     int      (*Fight)     (PluginPublicData *p, DogData *, CatData *);
 };
 
-PluginPublicData *PluginInit (void);
-int PluginTerm (PluginPublicData *p);
+typedef PluginPublicData *PluginInitFun(void);
+PluginInitFun PluginInit;
 
 #endif
