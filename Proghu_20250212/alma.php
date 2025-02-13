@@ -1,7 +1,12 @@
 <?php
+  printf ('<P>%s:%s var_dump($_POST):</p>', basename(__FILE__), __LINE__);
+  print ("<pre>");
+  var_dump ($_POST);
+  print ("</pre>\n");
+
   $username = $_POST['nev'];
   $password = $_POST['jelszo'];
- 
+
 #---------Azt teszi amit szeretnék------------------------------------
   $username = strrev($username); // megforditja a kiírás sorrendjét
   $password = strrev($password); // megforditja a kiírás sorrendjét
