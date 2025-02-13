@@ -10,7 +10,9 @@
 #include "plugin.h"
 
 int main (void) {
-    const char *pname= "./libplugin.so";
+    const char *pluginfname= "./libplugin.so";
+    const char *initname= "PluginInit";
+    const int reqver= 0; /* we don't use functions from newer versions */
     void *h;
     PluginInitFun *initfun= NULL;
     PluginPublicData *p= NULL;
@@ -19,23 +21,33 @@ int main (void) {
 
     srandom (time (NULL));
 
-    h= dlopen (pname, RTLD_LAZY);
+    h= dlopen (pluginfname, RTLD_LAZY);
     if (!h) {
         fprintf (stderr, "%s:%s:%d dlopen(\"%s\") failed: %s\n",
                  __FILE__, __func__, __LINE__,
-                 pname, dlerror());
+                 pluginfname, dlerror());
         return 0;
     }
 
-    initfun= (PluginInitFun *)(intptr_t)dlsym (h, "PluginInit");
+    initfun= (PluginInitFun *)(intptr_t)dlsym (h, initname);
     if (!initfun) {
-        fprintf (stderr, "%s:%s:%d dlopen(\"%s\") failed: %s\n",
+        fprintf (stderr, "%s:%s:%d dlsym(\"%s\", \"%s\") failed: %s\n",
                  __FILE__, __func__, __LINE__,
-                 pname, dlerror());
+                 pluginfname, initname, dlerror());
         goto DLCLOSE;
     }
     p= (*initfun)();
     if (!p) goto DLCLOSE;
+
+    fprintf (stderr, "%s:%s:%d %s has been loaded, %s successfully executed, version=%d\n",
+             __FILE__, __func__, __LINE__,
+             pluginfname, initname, (int)p->version);
+    if (p->version<reqver) {
+        fprintf (stderr, "%s:%s:%d Upgrade your plugin to version %d\n",
+                 __FILE__, __func__, __LINE__,
+                 reqver);
+        goto DLCLOSE;
+    }
 
     c1= p->Cat_Alloc (p, "Bella");
     c2= p->Cat_Alloc (p, "Chloe");

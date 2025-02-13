@@ -85,6 +85,7 @@ PluginPublicData *PluginInit(void)
     p= ecalloc (1, sizeof *p);
     pp= &p->pub;
 
+    pp->version=   0; /* last field of this version is 'Fight' */
     pp->PluginTerm=PluginTerm;
     pp->Cat_Alloc= Cat_Alloc;
     pp->Cat_Free=  Cat_Free;
