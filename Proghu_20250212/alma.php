@@ -10,6 +10,14 @@
   var_dump ($_POST);
   print ("</pre>\n");
 */
+  $fusr= isset($_POST['nev']);
+  $fpwd= isset($_POST['jelszo']);
+
+  if     ($fusr && $fpwd) print ("Most 'nev' es 'jelszo' is van<br>");
+  elseif ($fusr)          print ("Most csak 'nev' van<br>");
+  elseif ($fpwd)          print ("Most csak 'jelszo' van<br>");
+  else                    print ("Egyaltan nincs input<br>");
+
   $username = $_POST['nev'];
   $password = $_POST['jelszo'];
 
