@@ -4,32 +4,27 @@
 
   header('Content-Type: text/html; charset=UTF-8');
 
-  printf ('<P>%s:%s var_dump($_POST):</p>', basename(__FILE__), __LINE__);
+/*
+  printf ('<p>%s:%s var_dump($_POST):</p>', basename(__FILE__), __LINE__);
   print ("<pre>");
   var_dump ($_POST);
   print ("</pre>\n");
-
+*/
   $username = $_POST['nev'];
   $password = $_POST['jelszo'];
 
-#---------Azt teszi amit szeretnék------------------------------------
+  printf ("username='%s'<br>", htmlspecialchars($username, ENT_QUOTES, "UTF-8"));
+  printf ("password='%s'<br>", htmlspecialchars($password, ENT_QUOTES, "UTF-8"));
+
   $username = strrev($username); // megforditja a kiírás sorrendjét
   $password = strrev($password); // megforditja a kiírás sorrendjét
 
-  echo $username;
-  echo $password;
-
-#------------Ez a megoldás hibás----------------------------------------
-
-
-# Ha valamilyen értéket rendelek a egyes változókhoz, (a fentiektől eltérően)
-# mind a kettőt kiírja  az index oldalon egymás után?
-# Egy ellenőrzés lefuttatása után szeretném az eredményeket közölni.
-# Ez csak egy lebutított próbálkozás. pld. az alábbi megoldás hibás!
+  printf ("fordított username='%s'<br>", htmlspecialchars($username, ENT_QUOTES, "UTF-8"));
+  printf ("fordított password='%s'<br>", htmlspecialchars($password, ENT_QUOTES, "UTF-8"));
 
   $username = "Hibás név!";
   $password = "Hibás jelszó";
 
-  echo $username;
-  echo $password;
+  printf ("hibaüzenet1='%s'<br>", htmlspecialchars($username, ENT_QUOTES, "UTF-8"));
+  printf ("hibaüzenet2='%s'<br>", htmlspecialchars($password, ENT_QUOTES, "UTF-8"));
 ?>
