@@ -1,38 +1,35 @@
 <?php
+  /* htmlspecialchars is called all the time */
+  function hs($s) {
+    return htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
+  }
+
   ini_set('display_errors', '1');
   error_reporting(E_ALL);
 
-  header('Content-Type: text/html; charset=UTF-8');
+##header('Content-Type: text/html; charset=UTF-8');
+  header('Content-type: application/json; charset=UTF-8');
 
-/*
-  printf ('<p>%s:%s var_dump($_POST):</p>', basename(__FILE__), __LINE__);
-  print ("<pre>");
-  var_dump ($_POST);
-  print ("</pre>\n");
-*/
+  $reply= array('nev'=>'', 'jelszo'=>'', 'egyutt'=>'');
+
   $fusr= isset($_POST['nev']);
   $fpwd= isset($_POST['jelszo']);
 
-  if     ($fusr && $fpwd) print ("Most 'nev' es 'jelszo' is van<br>");
-  elseif ($fusr)          print ("Most csak 'nev' van<br>");
-  elseif ($fpwd)          print ("Most csak 'jelszo' van<br>");
-  else                    print ("Egyaltan nincs input<br>");
+  if ($fusr) {
+      $reply['nev'] = sprintf ('Oke, username=%s<br>', hs($_POST['nev']));
+      $reply['nev'].= sprintf ('Forditottja=%s<br>', hs(strrev($_POST['nev'])));
+  }
+  if ($fpwd) {
+      $reply['jelszo'] = sprintf ('Oke, jelszo=%s<br>', hs($_POST['jelszo']));
+      $reply['jelszo'].= sprintf ('Forditottja=%s<br>', hs(strrev($_POST['jelszo'])));
+  }
 
-  $username = $_POST['nev'];
-  $password = $_POST['jelszo'];
+  if ($fusr && $fpwd) {
+      $reply['egyutt'] = "Mivel 'nev' es 'jelszo' is van,<br>";
+      $reply['egyutt'].= "megpróbállak bejelentkeztetni<br>";
+      if (rand(1, 100) <= 60) $reply['egyutt'].= "Sikerült (erre 60% esély volt)";
+      else                    $reply['egyutt'].= "Nem sikerült (erre 40% esély volt)";
+  }
 
-  printf ("username='%s'<br>", htmlspecialchars($username, ENT_QUOTES, "UTF-8"));
-  printf ("password='%s'<br>", htmlspecialchars($password, ENT_QUOTES, "UTF-8"));
-
-  $username = strrev($username); // megforditja a kiírás sorrendjét
-  $password = strrev($password); // megforditja a kiírás sorrendjét
-
-  printf ("fordított username='%s'<br>", htmlspecialchars($username, ENT_QUOTES, "UTF-8"));
-  printf ("fordított password='%s'<br>", htmlspecialchars($password, ENT_QUOTES, "UTF-8"));
-
-  $username = "Hibás név!";
-  $password = "Hibás jelszó";
-
-  printf ("hibaüzenet1='%s'<br>", htmlspecialchars($username, ENT_QUOTES, "UTF-8"));
-  printf ("hibaüzenet2='%s'<br>", htmlspecialchars($password, ENT_QUOTES, "UTF-8"));
+  print json_encode ($reply);
 ?>
