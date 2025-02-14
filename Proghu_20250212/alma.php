@@ -31,5 +31,6 @@
       else                    $reply['egyutt'].= "Nem sikerült (erre 40% esély volt)";
   }
 
+##var_dump($reply);
   print json_encode ($reply);
 ?>
