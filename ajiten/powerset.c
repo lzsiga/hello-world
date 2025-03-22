@@ -92,10 +92,10 @@ void powerset_core(const char **v, int n, StringList *into, struct node *up)
     }
 }
 
-StringList *powerset(const char **v, int n)
+StringList *powerset(StringList *from)
 {
     StringList *into= StringList_Alloc();
-    powerset_core(v, n, into, NULL);
+    powerset_core(from->ptr, from->used, into, NULL);
     return into;
 }
 
@@ -120,11 +120,11 @@ int main(int argc, char **argv)
     printf("\n== set ==\n");
     StringList_Print(&set);
 
-    result1= powerset(set.ptr, set.used);
+    result1= powerset(&set);
     printf("\n== powerset ==\n");
     StringList_Print(result1);
 
-    result2= powerset(result1->ptr, result1->used);
+    result2= powerset(result1);
     printf("\n== powerset of powerset ==\n");
     StringList_Print(result2);
 
