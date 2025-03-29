@@ -40,10 +40,11 @@ void insertionSort(int a[], int n)
         loc = binarySearch(a, selected, 0, j);
  
         // Move all elements after location to create space
-        while (j >= loc) 
+        // a[loc..j] ==> a[loc+1..j+1]
+
+        for (; j >= loc; --j)
         {
-            a[j + 1] = a[j];
-            j--;
+            a[j+1] = a[j];
         }
         a[j + 1] = selected;
     }
