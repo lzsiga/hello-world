@@ -25,7 +25,7 @@ int binarySearch(char a[], char item, int low, int high)
 // Function to sort an array a[] of size 'n'
 void insertionSort(char a[], int n)
 {
-    int i, loc, j, k;
+    int i, loc, j;
     char selected;
     for (i = 1; i < n; ++i)
     {
@@ -45,19 +45,21 @@ void insertionSort(char a[], int n)
 // Driver Code
 int main()
 {
-    char *a[] = {"S", "O","R","T", "E", "X","A","M", "P","L","E",0};
-    int n = sizeof(a)/sizeof(a[0])-1, i;
+    char a[] = {'S', 'O','R','T', 'E', 'X','A','M', 'P','L','E'};
+    int n = sizeof(a)/sizeof(a[0]);
     printf("size of array: %d\n", n);
-    int j = 0;
-    while(j<n) {
-        printf(" -a[%d]: %s", j,a[j]);
-        j++;
-    }
+    int i;
+
+    for (i = 0; i < n; i++)
+        printf("a[%d]:'%c' ", i, a[i]);
     printf("\n");
+
     insertionSort(a, n);
+
     printf("Sorted array: \n");
     for (i = 0; i < n; i++)
-        printf("a[%d]:%s ", i,a[i]);
+        printf("a[%d]:'%c' ", i, a[i]);
+    printf("\n");
 
     return 0;
 }
