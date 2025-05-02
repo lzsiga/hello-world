@@ -2,6 +2,7 @@
 // C program for implementation of 
 // binary insertion sort
 #include <stdio.h>
+#include <string.h>
  
 // A binary search based function
 // to find the position
@@ -42,11 +43,17 @@ void insertionSort(int a[], int n)
         // Move all elements after location to create space
         // a[loc..j] ==> a[loc+1..j+1]
 
+#ifdef LOOPCOPY
         for (; j >= loc; --j)
         {
             a[j+1] = a[j];
         }
-        a[j + 1] = selected;
+#else
+        if (j+1>loc) {
+            memmove (&a[loc+1], &a[loc], (j+1-loc)*sizeof a[0]);
+        }
+#endif
+        a[loc] = selected;
     }
 }
  
