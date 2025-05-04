@@ -53,13 +53,13 @@ void runRecursive(int arr[], int n, int r, StatData *sdp) {
 int runLoopBased(int arr[], int n, int r) {
     assert(r==3);
     int subset[r];
-    int subset_number=0, l=0;
+    int subset_number=0;
     for (int i = 0; i < n - 2; i++) {
-        subset[l] = arr[i];
+        subset[0] = arr[i];
         for (int j = i + 1; j < n - 1; j++) {
-            subset[l+1] = arr[j];
+            subset[1] = arr[j];
             for (int k = j + 1; k < n; k++) {
-                subset[l+1] = arr[k];
+                subset[2] = arr[k];
                 printCombination(subset, r, 1, ++subset_number);
             }
         }
