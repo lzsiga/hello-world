@@ -40,7 +40,8 @@ int generateCombinationsRecursive(int arr[], int n, int r, int index, int k, int
         subset[k] = arr[i];  
         generateCombinationsRecursive(arr, n, r, i + 1, k + 1, subset, sdp);  
     }
-    return sdp->subset_number;
+    /* return sdp->subset_number; */
+    printf("No return here (line %d)\n", __LINE__);
 }
 
 // Wrapper Function for Recursion
