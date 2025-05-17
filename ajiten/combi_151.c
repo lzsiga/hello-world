@@ -30,23 +30,19 @@ static void printCombination(int subset[], int r, int fn_type, int subset_number
 // n         number of set elements
 // r         number of subset elements
 // index     process set elements, starting from 'index'
-// k         already generated subset elements (k<=r)
+// k         already generated subset elements (k<r)
 // subset    buffer for subset elements
 void generateCombinationsRecursive(int arr[], int n, int r, int index, int k, int *subset, StatData *sdp) {
-    if (k == r) {
-        ++sdp->subset_number;
-        printCombination(subset, r, 0, sdp->subset_number);                      //line #38
-        return;
-    }
     int lim= n-(r-k-1);
+
     for (int i = index; i < lim; i++) {
         subset[k] = arr[i];
-        //start = clock();
-        // Measure Time, for all subsets, starting with element at a given index position
-        generateCombinationsRecursive(arr, n, r, i + 1, k + 1, subset, sdp);
-        //end = clock();
-        //time_rec = ((double)(end - start)) / CLOCKS_PER_SEC;
-        //printf("\ntime_rec:%f, for start index: %d", time_rec, i);
+        if (k+1==r) {
+            ++sdp->subset_number;
+            printCombination(subset, r, 0, sdp->subset_number);
+        } else {
+            generateCombinationsRecursive(arr, n, r, i + 1, k + 1, subset, sdp);
+        }
     }
 }
 
