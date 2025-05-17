@@ -53,6 +53,7 @@ void generateCombinationsRecursive(int arr[], int n, int r, int index, int k, in
 // Wrapper Function for Recursion
 int runRecursive(int arr[], int n, int r, StatData *sdp) {
     int subset[r];
+    memset(sdp, 0, sizeof *sdp);
     generateCombinationsRecursive(arr, n, r, 0, 0, subset, sdp);
     return sdp->subset_number;
 }
@@ -103,19 +104,19 @@ int main() {
 
    // Measure Time for Recursive Approach
    start = clock();
-   count_rec = runRecursive(arr, arrc, r, &sd);
+   for (int i=0; i<200; ++i) count_rec = runRecursive(arr, arrc, r, &sd);
    end = clock();
    time_rec = ((double)(end - start)) / CLOCKS_PER_SEC;
 
    // Measure Time for Loop-Based Approach
    start = clock();
-   count_loop = runLoopBased(arr, arrc, r);
+   for (int i=0; i<200; ++i) count_loop = runLoopBased(arr, arrc, r);
    end = clock();
    time_loop = ((double)(end - start)) / CLOCKS_PER_SEC;
 
    // Print Results
-   fprintf(stderr, "Number of Combinations (Recursive): %d\n", count_rec);
-   fprintf(stderr, "Execution Time (Recursive): %f seconds\n", time_rec);
+   fprintf(stderr, "Number of Combinations (Recursive):  %d\n", count_rec);
+   fprintf(stderr, "Execution Time (Recursive):  %f seconds\n", time_rec);
 
    fprintf(stderr, "Number of Combinations (Loop-Based): %d\n", count_loop);
    fprintf(stderr, "Execution Time (Loop-Based): %f seconds\n", time_loop);
