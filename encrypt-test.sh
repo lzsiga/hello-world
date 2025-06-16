@@ -10,8 +10,15 @@ DoOne() {
     local CertFile="encrypt-test.$Name.cert"
     local MailFile="encrypt-test.$Name.mail.enc"
     printf '\nTrying %s algorithm %s\n' "$Name" "$Alg"
-    openssl genpkey -quiet -out "$KeyFile" -algorithm "$Alg" $Opts
-    printf 'Key generated %s\n' "$KeyFile"
+
+    if  openssl genpkey -quiet -out "$KeyFile" -algorithm "$Alg" $Opts;
+    then
+        printf 'Key generated %s\n' "$KeyFile"
+    else
+        printf 'Key generated failed\n'
+        return
+    fi
+
     if openssl req -x509 -key "$KeyFile" -out "$CertFile" -days 365 -nodes \
         -subj "$Subj" \
         -addext "keyUsage=digitalSignature, keyEncipherment, dataEncipherment" \
@@ -23,18 +30,31 @@ DoOne() {
         printf 'Cert not generated\n'
         return
     fi
+
     openssl x509 -in "$CertFile" -text -noout -out "$CertFile.txt"
+
     if openssl smime -encrypt -in ../encrypt-test.sh \
                 -from testuser@email.com \
                 -to recipient@email.com \
-                -subject "$Alg Encrypted message" \
+                -subject "$Alg Encrypted message (OpenSSL S/MIME)" \
                 -AES128 -out "$MailFile" "$CertFile";
     then
-        printf 'Encrypted file %s created\n' "$MailFile"
+        printf 'SMIME Encrypted file %s created\n' "$MailFile"
     else
-        printf 'Encryption did not work\n'
-        return
+        printf 'SMIME Encryption did not work\n'
     fi
+
+    if openssl cms -encrypt -in ../encrypt-test.sh \
+               -from testuser@email.com \
+               -to recipient@email.com \
+               -subject "$Alg Encrypted message (OpenSSL CMS)" \
+               -aes128 -out "$MailFile.cms" "$CertFile";
+    then
+        printf 'CMS Encrypted file %s created\n' "$MailFile.cms"
+    else
+        printf 'CMS Encryption did not work\n'
+    fi
+
 }
 
   mkdir -p encrypt-test
@@ -49,8 +69,10 @@ DoOne() {
   DoOne x448    X448    " "
   DoOne ed25519 ED25519 " "
   DoOne ed448   ED448   " "
-# DoOne ml-dsa  ML-DSA  " "
-# DoOne ml-kem  ML-KEM  " "
+  DoOne ml-dsa  ML-DSA  " "
+  DoOne ml-kem  ML-KEM  " "
+
+  find encrypt-test -size 0 -delete
 
 exit
 
