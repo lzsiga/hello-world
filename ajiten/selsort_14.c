@@ -1,6 +1,8 @@
 /* selsort_14.c */
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 void printArray(int arr[], int size){
     int i;
@@ -35,15 +37,76 @@ void selectionSort(int arr[], int n) {
      printArray(arr, n); 
 }
 
-int main() {
-    int arr[8] = { 5, 1, 3, 16, 8, 12, 11, 2 };//arr[] = {64, 25, 12, 22, 11};
-    int n = sizeof(arr) / sizeof(arr[0]);
+static void makeSpace(int **parr, int *pn, int *pnAlloc)
+{
+    if      (*pn > *pnAlloc) exit(12);
+    else if (*pn < *pnAlloc) return;
+    if (*pnAlloc==0) *pnAlloc= 8;
+    else             *pnAlloc= *pnAlloc * 2;
+    *parr= realloc (*parr, *pnAlloc * sizeof(int));
+    if (*parr==NULL) exit(13);
+}
+
+static void arrayFromArgs(int argc, char **argv, int **parr, int *pn)
+{
+    int nAlloc= 0, n= 0, *arr= NULL;
+
+    for (int i=1; i<argc; ++i) {
+        char *endptr= NULL;
+        int val= (int)strtol(argv[i], &endptr, 10);
+        if (*endptr == '\0') { /* valid number */
+            makeSpace(&arr, &n, &nAlloc);
+            arr[n++]= val;
+        }
+    }
+    *parr= arr;
+    *pn= n;
+}
+
+static void arrayFromStdin(int **parr, int *pn)
+{
+    int nAlloc= 0, n= 0, *arr= NULL;
+
+    printf ("Enter numbers, EOF to end\n");
+    for (int done= 0; !done; ) {
+        int val;
+        int nscan= scanf("%d", &val);
+        if (nscan==1) {
+            makeSpace(&arr, &n, &nAlloc);
+            arr[n++]= val;
+        } else {
+            done= 1;
+        }
+    }
+    *parr= arr;
+    *pn= n;
+}
+
+int main(int argc, char **argv) {
+    int defArr[8] = { 5, 1, 3, 16, 8, 12, 11, 2 };
+    int *arr;
+    int n;
+
+    if (argc>1) {
+        arrayFromArgs(argc, argv, &arr, &n);
+    } else {
+        arrayFromStdin(&arr, &n);
+    }
+
+    if (n==0) {
+        printf("Okay, using buitin default\n");
+        arr= malloc (sizeof(defArr));
+        if (!arr) exit(14);
+        memcpy (arr, defArr, sizeof(defArr));
+        n= sizeof(defArr)/sizeof(defArr[0]);
+    }
+
     printf("Unsorted array: \n");
     for (int i = 0; i < n; i++) {
         printf("%d ", arr[i]);
     }
     printf("\n");
-  
+
     // Calling selection sort
     selectionSort(arr, n);
 
@@ -52,5 +115,7 @@ int main() {
         printf("%d ", arr[i]);
     }
     printf("\n");
+
+    if (arr) free(arr);
     return 0;
 }
