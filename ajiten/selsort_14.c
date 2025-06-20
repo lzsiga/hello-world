@@ -24,14 +24,18 @@ void selectionSort(int arr[], int n) {
         printArray(arr, n);
 
         //Find the minimum element in unsorted array
+        int min_pos= i;
         for (int j = i + 1; j < n; j++) {
-            if (arr[j] < arr[i]) {
-                printf("<<>>minimum found: arr[%d]=%d less than arr[%d]=%d; swap\n",
-                       j, arr[j], i, arr[i]);
-                swap(&arr[i], &arr[j]);
-                printArray(arr, n);
+            if (arr[j] < arr[min_pos]) {
+                printf("<<>>minimum found: arr[%d]=%d less than arr[%d]=%d; no swap yet\n",
+                       j, arr[j], min_pos, arr[min_pos]);
+                min_pos= j;
             }
-        } 
+        }
+        printf("<<>>swap arr[%d]=%d and arr[%d]=%d\n",
+               i, arr[i], min_pos, arr[min_pos]);
+        swap(&arr[i], &arr[min_pos]);
+        printArray(arr, n);
      }
 }
 
