@@ -1,4 +1,4 @@
 # Makefile
 
-CFLAGS  += -g -W -Wall -pedantic
-LDFLAGS += -g
+CFLAGS  += -g -W -Wall -pedantic # -pg
+LDFLAGS += -g # -pg

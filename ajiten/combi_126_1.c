@@ -67,25 +67,36 @@ int runLoopBased(int arr[], int n, int r) {
     return subset_number;
 }
 
+static void measureRec(int arr[], int arrc, int r)
+{
+    StatData sd;
+    memset(&sd, 0, sizeof sd);
+
+    for (int i=0; i<5e4; ++i) runRecursive(arr, arrc, r, &sd);
+}
+
+static void measureLoop(int arr[], int arrc, int r)
+{
+    for (int i=0; i<5e4; ++i) runLoopBased(arr, arrc, r);
+}
+
 // Main Function for Execution
 int main() {
    int arr[] = {1, 2, 3, 4, 12, 9, 5, 70};
    int arrc = sizeof(arr) / sizeof(arr[0]);
    int r = (arrc+2)/3;
-   StatData sd;
    clock_t start, end;
    double time_rec, time_loop;
 
-    memset(&sd, 0, sizeof sd);
     // Measure Time for Recursive Approach
     start = clock();
-    for (int i=0; i<5e4; ++i) runRecursive(arr, arrc, r, &sd);
+    measureRec(arr, arrc, r);
     end = clock();
     time_rec = ((double)(end - start)) / CLOCKS_PER_SEC;
 
     // Measure Time for Loop-Based Approach
     start = clock();
-    for (int i=0; i<5e4; ++i) runLoopBased(arr, arrc, r);
+    measureLoop(arr, arrc, r);
     end = clock();
     time_loop = ((double)(end - start)) / CLOCKS_PER_SEC;
 

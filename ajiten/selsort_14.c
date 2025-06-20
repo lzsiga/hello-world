@@ -8,6 +8,7 @@ void printArray(int arr[], int size){
     int i;
     for (i = 0; i < size; i++)
         printf(" %d", arr[i]);
+    printf ("\n");
 }
 
 void swap(int* xp, int* yp){
@@ -17,24 +18,21 @@ void swap(int* xp, int* yp){
 }
 
 void selectionSort(int arr[], int n) {
-    int temp, min_loc, temp_loc=0;
     // Start with the whole array as unsorted one, and sequentially move the unsorted subarray towards right
     for (int i = 0; i < n - 1; i++) {
-        printf("\n====Pass no: %d, i: %d====================\n", i+1, i);
+        printf("====Pass no: %d, i: %d, j: %d..%d ====================\n", i+1, i, i+1, n-1);
+        printArray(arr, n);
+
         //Find the minimum element in unsorted array
-        min_loc = i;
         for (int j = i + 1; j < n; j++) {
-            printf("\nj: %d :: arr[%d]=%d <<>> min_loc: %d :: arr[%d]=%d", j, j, arr[j], min_loc, min_loc, arr[min_loc]);
-            if (arr[j] < arr[min_loc]) {
-                temp_loc = min_loc;
-                min_loc = j;
-                printf("\n \t<<>>min_loc changed to: %d :: swap between loc: %d (=%d), & %d (=%d) => arr:", j, j, arr[j], i, arr[i]);
-                swap(&arr[temp_loc], &arr[min_loc]);
+            if (arr[j] < arr[i]) {
+                printf("<<>>minimum found: arr[%d]=%d less than arr[%d]=%d; swap\n",
+                       j, arr[j], i, arr[i]);
+                swap(&arr[i], &arr[j]);
                 printArray(arr, n);
             }
         } 
      }
-     printArray(arr, n); 
 }
 
 static void makeSpace(int **parr, int *pn, int *pnAlloc)

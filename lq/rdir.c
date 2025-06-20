@@ -60,7 +60,8 @@ static inline union dirptr flp__open_directory(const char *target, union dir_st 
 static inline union dir_st flp__read_directory(union dirptr *dirptr, union dir_st *dir_st) {
 #ifdef UNIX
     puts("just before syscall\n");
-    printf("%s(): dirptr.curdir = %p\n",__func__,dirptr->curdir);
+    printf("%s(): dirptr.curdir=%p, dir_st=%p<<FIXME>>\n",
+           __func__, (void *)dirptr->curdir, (void *)dir_st);
     //exit(0);
     perror("Error:");
 
@@ -114,4 +115,5 @@ int main(void) {
     flp__read_directory(&dirptr, NULL); // segfault
 
     return 0;
+
 }
