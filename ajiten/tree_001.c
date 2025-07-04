@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <malloc.h>
 
 struct node
@@ -16,6 +17,7 @@ void print(struct node *, int);
 void preorderTraversal(struct node *);
 void inorderTraversal(struct node *);
 void postorderTraversal(struct node *);
+void levelorderTraversal(struct node *tree);
 struct node *findSmallestElement(struct node *);
 struct node *findLargestElement(struct node *);
 struct node *deleteElement(struct node *, int);
@@ -63,6 +65,9 @@ int main(void)
     printf("\n Total no. of internal nodes = %d", totalInternalNodes(tree));
 
     printf("\n The height of the tree = %d\n", Height(tree));
+
+    levelorderTraversal(tree);
+    return 0;
 }
 
 
@@ -138,6 +143,57 @@ void postorderTraversal(struct node *tree)
    }
 }
 
+struct levelorderTraversalData {
+    int depth;
+    int offset;
+    int data;
+};
+
+/* fills 'n' elements in 'arr' (starting from '*i')
+   with depth/offset/data values;
+   (where 'n' is the number of elements in the (sub)tree)
+   'depth' (depth of this (sub)tree, 0 for the whole tree)
+   'offs' (number of elements left to this (sub)tree)
+   updates '*i'
+   return value: 'n'
+ */
+int levelorderTraversal_core(struct node *tree, int depth, int offs, struct levelorderTraversalData *arr, int *i)
+{
+    int lnum=0, rnum= 0;
+    if (tree->left)  lnum= levelorderTraversal_core(tree->left,  depth+1, offs,      arr, i);
+    if (tree->right) rnum= levelorderTraversal_core(tree->right, depth+1, offs+lnum+1, arr, i);
+    arr[*i].depth= depth;
+    arr[*i].offset= offs+lnum;
+    arr[*i].data= tree->data;
+    ++*i;
+    return lnum+1+rnum;
+}
+
+/* compare-rutin used by quicksort */
+static int levelorderTraversal_compar(const void *pl, const void *pr)
+{
+    const struct levelorderTraversalData *l= pl;
+    const struct levelorderTraversalData *r= pr;
+    int cmp;
+
+    cmp= (r->depth < l->depth) - (r->depth > l->depth);
+    if (cmp==0) cmp= (r->offset < l->offset) - (r->offset > l->offset);
+    return cmp;
+}
+
+void levelorderTraversal(struct node *tree)
+{
+    if (!tree) return;
+    int n= totalNodes(tree);
+    struct levelorderTraversalData *arr= calloc (n, sizeof arr[0]);
+    int i= 0;
+    levelorderTraversal_core(tree, 0, 0, arr, &i);
+    qsort(arr, n, sizeof arr[0], levelorderTraversal_compar);
+    for (i=0; i<n; ++i) {
+        printf ("At depth %d, offset %d: data=%d\n", arr[i].depth, arr[i].offset, arr[i].data);
+    }
+    free(arr);
+}
 
 struct node *findSmallestElement(struct node *tree)
 {
