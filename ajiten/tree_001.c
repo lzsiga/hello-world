@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include <conio.h>
 #include <malloc.h>
 
 struct node
@@ -11,7 +10,7 @@ struct node
 
 struct node *tree, *ptr;
 
-void create_tree(struct node *);
+void create_tree();
 struct node *insertElement(struct node *, int);
 void print(struct node *, int);
 void preorderTraversal(struct node *);
@@ -28,7 +27,7 @@ int Height(struct node *);
 int main(void)
 {
    int val;
-   create_tree(tree);
+   create_tree();
    printf("enter elements of the new nodes : ");  //5 1 3 16 8 12 11 2
    int i=0, n, c;
    while(c= getchar(), c!=EOF && c!='\n')
@@ -67,7 +66,7 @@ int main(void)
 }
 
 
-void create_tree(struct node *tree)
+void create_tree(void)
 {
    tree = NULL;
 }
