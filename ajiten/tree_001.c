@@ -62,7 +62,7 @@ int main(void)
 
     printf("\n Total no. of internal nodes = %d", totalInternalNodes(tree));
 
-    printf("\n The height of the tree = %d", Height(tree));
+    printf("\n The height of the tree = %d\n", Height(tree));
 }
 
 
