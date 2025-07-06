@@ -9,9 +9,7 @@ struct node
    struct node *right;
 };
 
-struct node *tree, *ptr;
-
-void create_tree();
+struct node *create_tree(void);
 struct node *insertElement(struct node *, int);
 void print(struct node *, int);
 void preorderTraversal(struct node *);
@@ -28,8 +26,10 @@ int Height(struct node *);
 
 int main(void)
 {
+   struct node *tree;
    int val;
-   create_tree();
+
+   tree= create_tree();
    printf("enter elements of the new nodes : ");  //5 1 3 16 8 12 11 2
    int i=0, n, c;
    while(c= getchar(), c!=EOF && c!='\n')
@@ -40,6 +40,8 @@ int main(void)
       {
          ++i;
          tree = insertElement(tree, val);
+         printf("After insert(%d) totalNodes=%d external=%d internal=%d\n",
+                val, totalNodes(tree), totalExternalNodes(tree), totalInternalNodes(tree));
       }
       else
         break;
@@ -71,9 +73,9 @@ int main(void)
 }
 
 
-void create_tree(void)
+struct node *create_tree(void)
 {
-   tree = NULL;
+   return NULL;
 }
 
 
@@ -99,7 +101,7 @@ struct node *insertElement(struct node *tree, int val)
          parentptr=nodeptr;
          if(val<nodeptr->data)
             nodeptr=nodeptr->left;
-         else if(val>nodeptr->data)
+         else
             nodeptr = nodeptr->right;
       }
       if(val<parentptr->data)
