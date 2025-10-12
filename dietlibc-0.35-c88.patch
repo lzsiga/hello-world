@@ -1,0 +1,200 @@
+diff -c -r dietlibc-0.35-orig/include/asm/types.h dietlibc-0.35-patched/include/asm/types.h
+*** dietlibc-0.35-orig/include/asm/types.h	2012-08-13 16:48:33.000000000 +0200
+--- dietlibc-0.35-patched/include/asm/types.h	2025-10-12 17:09:06.194081064 +0200
+***************
+*** 15,30 ****
+  typedef uint8_t __u8;
+  typedef uint16_t __u16;
+  typedef uint32_t __u32;
+- #if !defined(__STRICT_ANSI__) || __STDC_VERSION__ + 0 >= 199900L
+  typedef uint64_t __u64;
+- #endif
+  
+  typedef int8_t __s8;
+  typedef int16_t __s16;
+  typedef int32_t __s32;
+- #if !defined(__STRICT_ANSI__) || __STDC_VERSION__ + 0 >= 199900L
+  typedef int64_t __s64;
+- #endif
+  
+  #if defined(__s390__) || (__WORDSIZE==64)
+  typedef unsigned long __kernel_size_t;
+--- 15,26 ----
+diff -c -r dietlibc-0.35-orig/include/asm/x86_64-sigcontext.h dietlibc-0.35-patched/include/asm/x86_64-sigcontext.h
+*** dietlibc-0.35-orig/include/asm/x86_64-sigcontext.h	2018-09-29 19:18:42.000000000 +0200
+--- dietlibc-0.35-patched/include/asm/x86_64-sigcontext.h	2025-10-12 16:54:19.402848225 +0200
+***************
+*** 17,49 ****
+  	__u32	reserved2[24];
+  };
+  
+! struct sigcontext { 		// ofs	ofs-x32
+! 	unsigned long r8;	// 0	0
+! 	unsigned long r9;	// 8	4
+! 	unsigned long r10;	// 16	8
+! 	unsigned long r11;	// 24	12
+! 	unsigned long r12;	// 32	16
+! 	unsigned long r13;	// 40	20
+! 	unsigned long r14;	// 48	24
+! 	unsigned long r15;	// 56	28
+! 	unsigned long rdi;	// 64	32
+! 	unsigned long rsi;	// 72	36
+! 	unsigned long rbp;	// 80	40
+! 	unsigned long rbx;	// 88	44
+! 	unsigned long rdx;	// 96	48
+! 	unsigned long rax;	// 104	52
+! 	unsigned long rcx;	// 112	56
+! 	unsigned long rsp;	// 120	60
+! 	unsigned long rip;	// 128	64
+! 	unsigned long eflags;	// 136	68
+! 	__u16         cs;	// 144	72
+! 	__u16         gs;	// 146	74
+! 	__u16         fs;	// 148	76
+  	__u16         __pad0;
+! 	unsigned long err;	// 152	80
+! 	unsigned long trapno;	// 160	84
+! 	unsigned long oldmask;	// 168	88
+! 	unsigned long cr2;	// 176	92
+  	struct _fpstate *fpstate;	/* zero when no FPU context */
+  	unsigned long reserved1[8];
+  };
+--- 17,49 ----
+  	__u32	reserved2[24];
+  };
+  
+! struct sigcontext { 		/* ofs	ofs-x32 */
+! 	unsigned long r8;	/* 0	0 */
+! 	unsigned long r9;	/* 8	4 */
+! 	unsigned long r10;	/* 16	8 */
+! 	unsigned long r11;	/* 24	12 */
+! 	unsigned long r12;	/* 32	16 */
+! 	unsigned long r13;	/* 40	20 */
+! 	unsigned long r14;	/* 48	24 */
+! 	unsigned long r15;	/* 56	28 */
+! 	unsigned long rdi;	/* 64	32 */
+! 	unsigned long rsi;	/* 72	36 */
+! 	unsigned long rbp;	/* 80	40 */
+! 	unsigned long rbx;	/* 88	44 */
+! 	unsigned long rdx;	/* 96	48 */
+! 	unsigned long rax;	/* 104	52 */
+! 	unsigned long rcx;	/* 112	56 */
+! 	unsigned long rsp;	/* 120	60 */
+! 	unsigned long rip;	/* 128	64 */
+! 	unsigned long eflags;	/* 136	68 */
+! 	__u16         cs;	/* 144	72 */
+! 	__u16         gs;	/* 146	74 */
+! 	__u16         fs;	/* 148	76 */
+  	__u16         __pad0;
+! 	unsigned long err;	/* 152	80 */
+! 	unsigned long trapno;	/* 160	84 */
+! 	unsigned long oldmask;	/* 168	88 */
+! 	unsigned long cr2;	/* 176	92 */
+  	struct _fpstate *fpstate;	/* zero when no FPU context */
+  	unsigned long reserved1[8];
+  };
+diff -c -r dietlibc-0.35-orig/include/unistd.h dietlibc-0.35-patched/include/unistd.h
+*** dietlibc-0.35-orig/include/unistd.h	2024-09-10 16:41:50.000000000 +0200
+--- dietlibc-0.35-patched/include/unistd.h	2025-10-12 17:02:05.547923943 +0200
+***************
+*** 82,91 ****
+  __writememsz__(2,3)
+  ssize_t read(int fd,void* buf,size_t len) __THROW;
+  
+! // technically this should be __warn_unused_result__ too because on NFS
+! // you only know that the data has actually reached the server if the
+! // close comes back successful. OTOH NFS is almost dead, and this would
+! // give a ton of annoying warnings.
+  int close(int fd) __THROW;
+  
+  #if defined(_GNU_SOURCE) || defined(_BSD_SOURCE)
+--- 82,91 ----
+  __writememsz__(2,3)
+  ssize_t read(int fd,void* buf,size_t len) __THROW;
+  
+! /* technically this should be __warn_unused_result__ too because on NFS */
+! /* you only know that the data has actually reached the server if the */
+! /* close comes back successful. OTOH NFS is almost dead, and this would */
+! /* give a ton of annoying warnings. */
+  int close(int fd) __THROW;
+  
+  #if defined(_GNU_SOURCE) || defined(_BSD_SOURCE)
+***************
+*** 138,146 ****
+  __attribute__((__warn_unused_result__))
+  pid_t setsid (void) __THROW;
+  
+! // even if you just closed an fd and know the new fd this could still
+! // fail because the file descriptor table is full and you need to check
+! // the result
+  __attribute__((__warn_unused_result__))
+  int dup (int oldfd) __THROW;
+  
+--- 138,146 ----
+  __attribute__((__warn_unused_result__))
+  pid_t setsid (void) __THROW;
+  
+! /* even if you just closed an fd and know the new fd this could still */
+! /* fail because the file descriptor table is full and you need to check */
+! /* the result */
+  __attribute__((__warn_unused_result__))
+  int dup (int oldfd) __THROW;
+  
+***************
+*** 195,202 ****
+  __attribute__((__warn_unused_result__))
+  int lchown(const char *path, uid_t owner, gid_t group) __THROW;
+  
+! // if you do not check the return value you might as well not call fsync
+! // in the first place
+  __attribute__((__warn_unused_result__))
+  int fsync(int fd) __THROW;
+  
+--- 195,202 ----
+  __attribute__((__warn_unused_result__))
+  int lchown(const char *path, uid_t owner, gid_t group) __THROW;
+  
+! /* if you do not check the return value you might as well not call fsync */
+! /* in the first place */
+  __attribute__((__warn_unused_result__))
+  int fsync(int fd) __THROW;
+  
+***************
+*** 272,279 ****
+  #define seteuid(euid) setreuid(-1,euid)
+  #define setegid(egid) setregid(-1,egid)
+  
+! // if this is your file (you created it or have it open), use ftruncate instead
+! // otherwise you risk filesystem races with other processes
+  __attribute__((__warn_unused_result__))
+  int truncate(const char *path, off_t length) __THROW;
+  
+--- 272,279 ----
+  #define seteuid(euid) setreuid(-1,euid)
+  #define setegid(egid) setregid(-1,egid)
+  
+! /* if this is your file (you created it or have it open), use ftruncate instead */
+! /* otherwise you risk filesystem races with other processes */
+  __attribute__((__warn_unused_result__))
+  int truncate(const char *path, off_t length) __THROW;
+  
+***************
+*** 362,370 ****
+  int getresuid(uid_t *ruid, uid_t *euid, uid_t *suid) __THROW;
+  int getresgid(gid_t *rgid, gid_t *egid, gid_t *sgid) __THROW;
+  
+! // Note: there are cases where setresuid() can fail even when the caller
+! // is UID 0; it is a  grave  security  error  to omit checking for a
+! // failure return from setresuid().
+  __attribute__((__warn_unused_result__))
+  int setresuid(uid_t ruid, uid_t euid, uid_t suid) __THROW;
+  
+--- 362,370 ----
+  int getresuid(uid_t *ruid, uid_t *euid, uid_t *suid) __THROW;
+  int getresgid(gid_t *rgid, gid_t *egid, gid_t *sgid) __THROW;
+  
+! /* Note: there are cases where setresuid() can fail even when the caller */
+! /* is UID 0; it is a  grave  security  error  to omit checking for a */
+! /* failure return from setresuid(). */
+  __attribute__((__warn_unused_result__))
+  int setresuid(uid_t ruid, uid_t euid, uid_t suid) __THROW;
+  
