@@ -1,6 +1,6 @@
 diff -c -r dietlibc-0.35-orig/include/asm/types.h dietlibc-0.35-patched/include/asm/types.h
-*** dietlibc-0.35-orig/include/asm/types.h	2012-08-13 16:48:33.000000000 +0200
---- dietlibc-0.35-patched/include/asm/types.h	2025-10-12 17:09:06.194081064 +0200
+*** dietlibc-0.35-orig/include/asm/types.h	Mon Aug 13 16:48:33 2012
+--- dietlibc-0.35-patched/include/asm/types.h	Sun Oct 12 17:09:06 2025
 ***************
 *** 15,30 ****
   typedef uint8_t __u8;
@@ -21,8 +21,8 @@ diff -c -r dietlibc-0.35-orig/include/asm/types.h dietlibc-0.35-patched/include/
   typedef unsigned long __kernel_size_t;
 --- 15,26 ----
 diff -c -r dietlibc-0.35-orig/include/asm/x86_64-sigcontext.h dietlibc-0.35-patched/include/asm/x86_64-sigcontext.h
-*** dietlibc-0.35-orig/include/asm/x86_64-sigcontext.h	2018-09-29 19:18:42.000000000 +0200
---- dietlibc-0.35-patched/include/asm/x86_64-sigcontext.h	2025-10-12 16:54:19.402848225 +0200
+*** dietlibc-0.35-orig/include/asm/x86_64-sigcontext.h	Sat Sep 29 19:18:42 2018
+--- dietlibc-0.35-patched/include/asm/x86_64-sigcontext.h	Sun Oct 12 16:54:19 2025
 ***************
 *** 17,49 ****
   	__u32	reserved2[24];
@@ -92,9 +92,29 @@ diff -c -r dietlibc-0.35-orig/include/asm/x86_64-sigcontext.h dietlibc-0.35-patc
   	struct _fpstate *fpstate;	/* zero when no FPU context */
   	unsigned long reserved1[8];
   };
+diff -c -r dietlibc-0.35-orig/include/errno.h dietlibc-0.35-patched/include/errno.h
+*** dietlibc-0.35-orig/include/errno.h	Thu Feb  1 03:03:39 2018
+--- dietlibc-0.35-patched/include/errno.h	Mon Oct 13 11:49:42 2025
+***************
+*** 746,752 ****
+  
+  __BEGIN_DECLS
+  
+! // #include <errno_definition.h>
+  
+  extern int *__errno_location(void);
+  
+--- 746,752 ----
+  
+  __BEGIN_DECLS
+  
+! /* #include <errno_definition.h> */
+  
+  extern int *__errno_location(void);
+  
 diff -c -r dietlibc-0.35-orig/include/unistd.h dietlibc-0.35-patched/include/unistd.h
-*** dietlibc-0.35-orig/include/unistd.h	2024-09-10 16:41:50.000000000 +0200
---- dietlibc-0.35-patched/include/unistd.h	2025-10-12 17:02:05.547923943 +0200
+*** dietlibc-0.35-orig/include/unistd.h	Tue Sep 10 16:41:50 2024
+--- dietlibc-0.35-patched/include/unistd.h	Sun Oct 12 17:02:05 2025
 ***************
 *** 82,91 ****
   __writememsz__(2,3)
