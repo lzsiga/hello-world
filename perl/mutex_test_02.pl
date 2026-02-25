@@ -1,18 +1,5 @@
 #!/usr/local/bin/perl
 
-# $ perl mutex_test.pl # output of run:
-#
-# Main process before lock
-# Main process locked the mutex, sleeping
-# Thread: before lock
-# … here the main process sleeps, the thread waits for the lock …
-# Main process woke up
-# Main process released the mutex
-# Thread: locked the mutex, sleeping
-# … here the thread sleeps, the main process waits in join …
-# Thread: released the mutex
-# Main process after join: exiting
-
 use strict;
 use warnings;
 use utf8;
@@ -45,7 +32,6 @@ sub dsDecrement {
 sub dsPrint {
     my $p= $_[0];
     my $msg= $_[1];
-#   printf ("%s: obj=%s, cntUp=%d, cntDown=%d\n", $msg, $p, $p->{cntUp}, $p->{cntDown});
     printf ("%s: cntUp=%d, cntDown=%d\n", $msg, $p->{cntUp}, $p->{cntDown});
 }
 
@@ -105,10 +91,8 @@ sub thread_main {
     printf "Thread exits\n";
 }
 
-# this is an 'actual' signal handler
-# see `man 7 signal`
-# we use `syswrite` to notify the thread that actually
-# does something
+# _SIG_CHLD: in this signal-handler we use `syswrite`
+# to notify the thread that actually does something
 
 sub _SIG_CHLD {
     while ((my $pid = waitpid(-1, WNOHANG))>0) {
