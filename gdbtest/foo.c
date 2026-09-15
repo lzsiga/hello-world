@@ -1,6 +1,13 @@
 /* foo.c */
 
-static int foovar= 1;
-static const char *duplicate= "foo";
+static struct {
+    int foofld;
+} dup_init = {
+    'F'
+};
 
-const char *fooFun() { return duplicate; }
+static struct {
+    int foofld;
+} dup_zeroinit;
+
+void *fooFun() { return (void *)&dup_zeroinit; }

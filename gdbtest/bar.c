@@ -1,6 +1,13 @@
 /* bar.c */
 
-static int barvar= 1;
-static const char *duplicate= "bar";
+static struct {
+    int barfld;
+} dup_init = {
+    'B'
+};
 
-const char *barFun() { return duplicate; }
+static struct {
+    int barfld;
+} dup_zeroinit;
+
+void *barFun() { return (void *)&dup_zeroinit; }
